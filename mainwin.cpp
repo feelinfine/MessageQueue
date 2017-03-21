@@ -1,9 +1,64 @@
 #include "mainwin.h"
 
-MainWin::MainWin(QWidget *parent)
-	: QMainWindow(parent)
+#include <QtWidgets/QLayout>
+#include <QtWidgets/QPushButton>
+#include <QtCore/QTimer>
+
+#include "MessageQueue.h"
+
+MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 {
-	ui.setupUi(this);
+	//default
+	const size_t WIN_W = 640;
+	const size_t WIN_H = 480;
+
+	const size_t TIMER_INTERVAL = 1000; //msec
+
+	//timer
+	QTimer* message_timer = new QTimer();
+	message_timer->setInterval(TIMER_INTERVAL);
+
+	QObject::connect(message_timer, &QTimer::timeout, this, []()
+	{
+		
+	});
+
+	//controls
+	QPushButton* start_messaging = new QPushButton("START", this);
+	start_messaging->setCheckable(true);
+
+	QObject::connect(start_messaging, &QPushButton::clicked, [start_messaging, message_timer](bool _checked)
+	{
+		if (_checked)
+		{
+			start_messaging->setText("STOP");
+			message_timer->start();
+		}
+		else
+		{
+			start_messaging->setText("START");
+			message_timer->stop();
+		}
+	});
+
+
+	//layout
+	QHBoxLayout* center_layout = new QHBoxLayout();
+	center_layout->addStretch(1);
+	center_layout->addWidget(start_messaging);
+	center_layout->addStretch(1);
+
+	QVBoxLayout* main_layout = new QVBoxLayout();
+	main_layout->addStretch(1);
+	main_layout->addLayout(center_layout);
+	main_layout->addStretch(1);
+
+	QWidget* main_widget = new QWidget();
+	main_widget->setLayout(main_layout);
+
+	setCentralWidget(main_widget);
+
+	resize(WIN_W, WIN_H);
 }
 
 MainWin::~MainWin()

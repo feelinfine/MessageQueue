@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_PropertySheetDisplayName>CustomBuildToolsDebug_x86</_PropertySheetDisplayName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <CustomBuild>
+      <Command>"$(QT_DIR_X86)\bin\moc.exe"  "%(FullPath)" -o ".\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp"  -DUNICODE -DWIN32 -DQT_DLL -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB "-I.\GeneratedFiles" "-I." "-I$(QTDIR)\include" "-I.\GeneratedFiles\$(ConfigurationName)\." "-I$(QT_DIR_X86)\include\QtCore" "-I$(QT_DIR_X86)\include\QtGui" "-I$(QT_DIR_X86)\include\QtWidgets"</Command>
+      <Message>Moc%27ing %(Filename).h...</Message>
+      <Outputs>.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</Outputs>
+      <AdditionalInputs>$(QT_DIR_X86)\bin\moc.exe;%(FullPath)</AdditionalInputs>
+    </CustomBuild>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(QT_DIR_X86)/include;$(QT_DIR_X86)/include/QtNetwork;$(QT_DIR_X86)/include/QtCore;$(QT_DIR_X86)/include/QtCharts;$(QT_DIR_X86)/include/QtANGLE;$(QT_DIR_X86)/include/QtGui;$(QT_DIR_X86)/include/QtSvg;$(QT_DIR_X86)/include/QtWidgets;$(SolutionDir)/Common;$(ProjectDir)/GeneratedFiles</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(QT_DIR_X86)/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>shell32.lib;Qt5Guid.lib;Qt5Widgetsd.lib;Qt5Cored.lib;Qt5Networkd.lib;qtmaind.lib;Qt5Charts.lib</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>

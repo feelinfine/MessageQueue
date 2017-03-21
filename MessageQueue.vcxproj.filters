@@ -47,24 +47,19 @@
     <ClCompile Include="GeneratedFiles\Release\moc_mainwin.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
-    <ClCompile Include="GeneratedFiles\qrc_mainwin.cpp">
-      <Filter>Generated Files</Filter>
+    <ClCompile Include="GeneratedFiles\Debug\moc_PopupMessageWin.cpp">
+      <Filter>Generated Files\Debug</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwin.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="mainwin.ui">
-      <Filter>Form Files</Filter>
+    <CustomBuild Include="MessageQueue.h">
+      <Filter>Header Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="mainwin.qrc">
-      <Filter>Resource Files</Filter>
+    <CustomBuild Include="PopupMessageWin.h">
+      <Filter>Header Files</Filter>
     </CustomBuild>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="GeneratedFiles\ui_mainwin.h">
-      <Filter>Generated Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
