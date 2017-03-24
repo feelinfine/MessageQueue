@@ -18,9 +18,11 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	QTimer* message_timer = new QTimer();
 	message_timer->setInterval(TIMER_INTERVAL);
 
+	MessageQueue::instance().set_base_widget(this);
+
 	QObject::connect(message_timer, &QTimer::timeout, this, []()
 	{
-		
+		MessageQueue::instance() << "Ololo";
 	});
 
 	//controls
@@ -43,15 +45,13 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 
 	//layout
-	QHBoxLayout* center_layout = new QHBoxLayout();
-	center_layout->addStretch(1);
-	center_layout->addWidget(start_messaging);
-	center_layout->addStretch(1);
+	QHBoxLayout* bottom_layout = new QHBoxLayout();
+	bottom_layout->addWidget(start_messaging);
+	bottom_layout->addStretch(1);
 
 	QVBoxLayout* main_layout = new QVBoxLayout();
 	main_layout->addStretch(1);
-	main_layout->addLayout(center_layout);
-	main_layout->addStretch(1);
+	main_layout->addLayout(bottom_layout);
 
 	QWidget* main_widget = new QWidget();
 	main_widget->setLayout(main_layout);

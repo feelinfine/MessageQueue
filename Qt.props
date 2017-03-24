@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+
+  <PropertyGroup Label="UserMacros" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <QT_DIR>E:\libs\Qt\Qt5.7\5.7\msvc2015</QT_DIR>
+	 <QT_LIBS>Qt5Guid.lib;Qt5Widgetsd.lib;Qt5Cored.lib;qtmaind.lib</QT_LIBS>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+     <QT_DIR>E:\libs\Qt\Qt5.7\5.7\msvc2015</QT_DIR>
+	 <QT_LIBS>Qt5Gui.lib;Qt5Widgets.lib;Qt5Core.lib;qtmain.lib</QT_LIBS>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+     <QT_DIR>E:\libs\Qt\Qt5.7\5.7\msvc2015_64</QT_DIR>
+	 <QT_LIBS>Qt5Guid.lib;Qt5Widgetsd.lib;Qt5Cored.lib;qtmaind.lib</QT_LIBS>
+  </PropertyGroup>
+    <PropertyGroup Label="UserMacros" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+     <QT_DIR>E:\libs\Qt\Qt5.7\5.7\msvc2015_64</QT_DIR>
+	 <QT_LIBS>Qt5Gui.lib;Qt5Widgets.lib;Qt5Core.lib;qtmain.lib</QT_LIBS>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros">
+    <QT_LIB_DIR>$(QT_DIR)/lib</QT_LIB_DIR>
+    <QT_INCLUDE_DIR>$(QT_DIR)\include</QT_INCLUDE_DIR>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <_PropertySheetDisplayName>Qt</_PropertySheetDisplayName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <CustomBuild>
+      <Command>"$(QT_DIR)\bin\moc.exe"  "%(FullPath)" -o ".\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp"  -DUNICODE -DWIN32 -DQT_DLL -DQT_CORE_LIB -DQT_GUI_LIB -DQT_WIDGETS_LIB "-I.\GeneratedFiles" "-I." "-I$(QT_DIR)\include" "-I.\GeneratedFiles\$(ConfigurationName)\." "-I$(QT_DIR)\include\QtCore" "-I$(QT_DIR)\include\QtGui" "-I$(QT_DIR)\include\QtWidgets"</Command>
+      <Message>Moc%27ing %(Filename).h...</Message>
+      <Outputs>.\GeneratedFiles\$(ConfigurationName)\moc_%(Filename).cpp</Outputs>
+      <AdditionalInputs>$(QT_DIR)\bin\moc.exe;%(FullPath)</AdditionalInputs>
+    </CustomBuild>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(QT_INCLUDE_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(QT_LIB_DIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(QT_LIBS);%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="QT_DIR">
+      <Value>$(QT_DIR)</Value>
+    </BuildMacro>
+    <BuildMacro Include="QT_LIB_DIR">
+      <Value>$(QT_LIB_DIR)</Value>
+    </BuildMacro>
+    <BuildMacro Include="QT_INCLUDE_DIR">
+      <Value>$(QT_INCLUDE_DIR)</Value>
+    </BuildMacro>
+    <BuildMacro Include="QT_LIBS">
+      <Value>$(QT_LIBS)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>

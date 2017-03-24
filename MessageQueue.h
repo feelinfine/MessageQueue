@@ -1,64 +1,28 @@
 #pragma once
 
-#include <QtWidgets/QDialog>
-#include <QtWidgets/QLayout>
-
-#include <QtCore/QPropertyAnimation>
-#include <QtCore/QTimer>
-
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QStyle>
-
-#include <QtGui/QCloseEvent>
-#include <QtGui/QShowEvent>
-
-#include <vector>
-#include <memory>
-#include <atomic>
-#include <thread>
-#include <mutex>
+#include <list>
+#include <functional>
 
 #include "PopupMessageWin.h"
+#include "Message.h"
 
-enum class MsgType
+class MessageQueue final : public QObject
 {
-	INFO,
-	WARNING,
-	ERROR
-};
+	Q_OBJECT
 
-class MessageQueue
-{
 	static const size_t DEF_QUEUE_SIZE = 3;
-	static const size_t DEF_CLOSE_TIMER = 10000;	//msec
+	static const size_t DEF_CLOSE_TIMER = 4000;	//msec
 
 public:
-	MessageQueue(QWidget* _main_widget, size_t _close_time = DEF_CLOSE_TIMER, size_t _queue_size = DEF_QUEUE_SIZE) : m_queue_size(_queue_size), m_close_timer_value(_close_time), m_main_widget(_main_widget), counter(0), m_finished(false)
+	static MessageQueue& instance(QWidget* _base_widget = nullptr, size_t _close_time = DEF_CLOSE_TIMER, size_t _queue_size = DEF_QUEUE_SIZE)
 	{
-		m_thr = std::make_unique<std::thread>([this]()
-		{
-			do
-			{
-				m_rm.lock();
-				std::remove_if(m_queue.begin(), m_queue.end(), [](const std::shared_ptr<PopupMsgWindow>& _win) -> bool
-				{
-					return _win->closed();
-				});
-				m_rm.unlock();
-				std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-			} while (!m_finished);
-		
-		});
+		static MessageQueue self(_base_widget, _close_time, _queue_size);
+		return self;
 	}
 
-	MessageQueue() : MessageQueue(nullptr)
+	void set_base_widget(QWidget* _base_widget)	//no owns
 	{
-	}
-
-	void set_main_widget(QWidget* _main_widget)	//no owns
-	{
-		m_main_widget = _main_widget;
+		m_base_widget = _base_widget;
 	}
 
 	void set_close_timer(size_t _msec)
@@ -66,37 +30,84 @@ public:
 		m_close_timer_value = _msec;
 	}
 
-	void set_max_queue_size(size_t _size)
+	void set_limit_size(size_t _size)
 	{
 		m_queue_size = _size;
 	}
 
 	void post_message(MsgType _mtype, const QString& _str)
 	{
-		std::shared_ptr<PopupMsgWindow> win = std::make_shared<PopupMsgWindow>(m_main_widget, m_close_timer_value);
+		PopupMsgWindow* win = new PopupMsgWindow();	//WA_DeleteOnClose
+		win->set_base_widget(m_base_widget);
+		win->set_close_time(m_close_timer_value);
+		win->set_message(_str);
 
-		m_rm.lock();
-		for (auto& it : m_queue)
-			it->move_up(win->height() + win->style()->pixelMetric(QStyle::PM_TitleBarHeight));
-			
-		m_queue.push_back(win);
-		m_rm.unlock();
+		QObject::connect(win, &PopupMsgWindow::finish_fade_out, this, std::bind(&MessageQueue::remove_from_queue, this, win));
+		
+		add_to_queue(win);
+	}
 
-		win->show();
+	const MessageQueue& operator << (const QString& _info)
+	{
+		post_message(MsgType::INFO, _info);
+		return *this;
+	}
+
+	~MessageQueue()
+	{
 	}
 
 private:
+	MessageQueue(const MessageQueue&) = delete;
+	MessageQueue& operator= (const MessageQueue&) = delete;
+
+	MessageQueue(QWidget* _main_widget, size_t _close_time = DEF_CLOSE_TIMER, size_t _queue_size = DEF_QUEUE_SIZE) : m_queue_size(_queue_size), m_close_timer_value(_close_time), m_base_widget(_main_widget)
+	{
+	}
+
+	void remove_from_queue(PopupMsgWindow* _win)
+	{
+		std::list<PopupMsgWindow*>::iterator it = std::find(m_active_list.begin(), m_active_list.end(), _win);
+
+		if (it == m_active_list.end())
+			return;
+
+		PopupMsgWindow* cur_win = *it;
+		if (cur_win != m_active_list.back() && cur_win != m_active_list.front())
+		{
+			PopupMsgWindow* upper = *std::next(it);
+			PopupMsgWindow* lower = *std::prev(it);
+			upper->move_down();
+
+			QObject::connect(upper, &PopupMsgWindow::finish_moving_down, [lower, upper]()
+			{
+				QObject::connect(lower, &PopupMsgWindow::begin_moving_up, upper, &PopupMsgWindow::move_up);
+			});
+		}
+
+		m_active_list.remove(*it);
+	}
+
+	void add_to_queue(PopupMsgWindow* _win)
+	{
+		if (!m_active_list.empty())
+		{
+			QObject::connect(_win, &PopupMsgWindow::begin_moving_up, m_active_list.front(), &PopupMsgWindow::move_up);
+			m_active_list.front()->move_up();
+		}
+
+		m_active_list.push_front(_win);
+
+		_win->fade_in();
+		_win->show();
+
+		if (m_active_list.size() > m_queue_size)
+			remove_from_queue(m_active_list.back());
+	}
+
 	size_t m_queue_size;
 	size_t m_close_timer_value;
-	QWidget* m_main_widget;
+	QWidget* m_base_widget;
 
-	std::vector<std::shared_ptr<PopupMsgWindow> > m_queue;
-	PopupMsgWindow* m_last_win;
-
-	size_t counter;
-
-	std::unique_ptr<std::thread> m_thr;
-	std::atomic<bool> m_finished;
-
-	std::recursive_mutex m_rm;
+	std::list<PopupMsgWindow*> m_active_list;
 };
