@@ -20,6 +20,8 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 	MessageQueue::instance().set_base_widget(this);
 
+
+
 	QObject::connect(message_timer, &QTimer::timeout, this, []()
 	{
 		MessageQueue::instance() << "Ololo";
@@ -31,6 +33,9 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 	QObject::connect(start_messaging, &QPushButton::clicked, [start_messaging, message_timer](bool _checked)
 	{
+		/*	for (int i = 0; i < 10; ++i)
+				MessageQueue::instance() << "Ololo";*/
+
 		if (_checked)
 		{
 			start_messaging->setText("STOP");
