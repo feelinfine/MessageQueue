@@ -56,6 +56,9 @@
     <ClCompile Include="GeneratedFiles\Release\moc_MessageQueue.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
+    <ClCompile Include="MessageQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwin.h">
@@ -70,9 +73,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Message.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DefaultMessageWins.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

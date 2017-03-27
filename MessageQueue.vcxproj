@@ -148,6 +148,7 @@
     </ClCompile>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mainwin.cpp" />
+    <ClCompile Include="MessageQueue.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwin.h">
@@ -195,7 +196,6 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DefaultMessageWins.h" />
     <ClInclude Include="Message.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -21,10 +21,10 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	MessageQueue::instance().set_base_widget(this);
 
 
-
-	QObject::connect(message_timer, &QTimer::timeout, this, []()
+	size_t counter = 0;
+	QObject::connect(message_timer, &QTimer::timeout, this, [&counter]()
 	{
-		MessageQueue::instance() << "Ololo";
+		MessageQueue::instance() << QString::number(++counter);
 	});
 
 	//controls
@@ -33,8 +33,8 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 	QObject::connect(start_messaging, &QPushButton::clicked, [start_messaging, message_timer](bool _checked)
 	{
-		/*	for (int i = 0; i < 10; ++i)
-				MessageQueue::instance() << "Ololo";*/
+			//for (int i = 0; i < 10; ++i)
+			//	MessageQueue::instance() << "Ololo";
 
 		if (_checked)
 		{

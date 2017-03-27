@@ -7,6 +7,7 @@
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QPlainTextEdit>
 
 #include <QtCore/QTimer>
 #include <QtCore/QPropertyAnimation>
@@ -34,19 +35,23 @@ class PopupMsgWindow : public QDialog
 
 	const size_t DEF_WIN_WIDTH = 300;
 	const size_t DEF_WIN_HEIGTH = 150;
+	const size_t DEF_CLOSE_TIME = 5000;
 
 public:
-	PopupMsgWindow(size_t _close_time = 0) : QDialog(nullptr), m_forced_close(false), m_first_show(true), m_closed(false)
+	PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_first_show(true), m_closed(false), m_close_time(DEF_CLOSE_TIME)
 	{
 		m_close_timer = new QTimer(this);	//owns
-
-		m_msg_label = new QLabel();
 
 		setWindowFlags(windowFlags() | Qt::Tool);
 		setWindowOpacity(0);
 		setAttribute(Qt::WA_DeleteOnClose);
 
-		set_close_time(_close_time);
+		m_out = new QPlainTextEdit();
+		m_out->setReadOnly(true);
+		m_out->setStyleSheet("QPlainTextEdit {background-color: transparent;} ");
+		m_out->setFrameStyle(QFrame::NoFrame);
+
+		m_icon_lbl = new QLabel();
 
 		QPushButton* btn = new QPushButton("OK", this);
 		QObject::connect(btn, &QPushButton::clicked, this, &PopupMsgWindow::close);
@@ -55,19 +60,27 @@ public:
 		bottom_layout->addStretch(1);
 		bottom_layout->addWidget(btn);
 
-		m_main_layout = new QVBoxLayout();
-		m_main_layout->addWidget(m_msg_label);
-		m_main_layout->addStretch(1);
-		m_main_layout->addLayout(bottom_layout);
+		QHBoxLayout* central_layout = new QHBoxLayout();
+		central_layout->addWidget(m_icon_lbl);
+		central_layout->addWidget(m_out);
+
+		QVBoxLayout* main_layout = new QVBoxLayout();
+		main_layout->addLayout(central_layout);
+		main_layout->addStretch(1);
+		main_layout->addLayout(bottom_layout);
 
 		setFixedSize(DEF_WIN_WIDTH, DEF_WIN_HEIGTH);
 
-		setLayout(m_main_layout);
+		setLayout(main_layout);
 	}
 
-	~PopupMsgWindow()
+	void set_icon(const QIcon& _icon)
 	{
-		int d = 0;
+		m_icon_lbl->setPixmap(_icon.pixmap(_icon.actualSize(QSize(32, 32))));
+	}
+
+	virtual ~PopupMsgWindow()
+	{
 	}
 
 	void set_base_widget(QWidget* _widget)
@@ -118,8 +131,9 @@ public slots:
 		QPoint begin_pos = pos();
 		QPoint end_pos = QPoint(begin_pos.x(), begin_pos.y() - frameGeometry().height());
 
-		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 200, true, this);
-
+		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 200, false, this);
+		QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_up);
+		animation->start(QAbstractAnimation::DeleteWhenStopped);
 		emit begin_moving_up();
 	}
 
@@ -136,13 +150,13 @@ public slots:
 
 	void fade_in()
 	{
-//		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "windowOpacity", 0.0, 1.0, 200, true, this);
+		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "windowOpacity", 0.0, 1.0, 200, true, this);
 
-		QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity");
-		animation->setDuration(200);
-		animation->setStartValue(0.0);
-		animation->setEndValue(1.0);
-		animation->start(QAbstractAnimation::DeleteWhenStopped);
+		//QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity");
+		//animation->setDuration(200);
+		//animation->setStartValue(0.0);
+		//animation->setEndValue(1.0);
+		//animation->start(QAbstractAnimation::DeleteWhenStopped);
 
 	}
 
@@ -160,15 +174,16 @@ public slots:
 		fade_out();
 	}
 
-	void set_message(const QString& _str)
+	virtual void set_message(const QString& _str)
 	{
-		m_msg_label->setText(_str);
-	}
+		m_out->setPlainText(_str);
+	};
 
 signals:
 	void begin_moving_down();
 	void finish_moving_down();
 	void begin_moving_up();
+	void finish_moving_up();
 	void finish_fade_out();
 
 private:
@@ -189,8 +204,8 @@ private:
 	size_t m_close_time;
 	QWidget* m_binded_widget;
 	std::atomic<bool> m_closed;
-	QVBoxLayout* m_main_layout;
-
 	QTimer* m_close_timer;
-	QLabel* m_msg_label;
+
+	QLabel* m_icon_lbl;
+	QPlainTextEdit* m_out;
 };
