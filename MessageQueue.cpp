@@ -63,7 +63,7 @@ MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLO
 	m_base_widget(_main_widget),
 	m_processing(true)
 {
-	m_processing_interval = 200;
+	m_processing_interval = 50;
 
 	QTimer* timer = new QTimer(this);
 	timer->setInterval(m_processing_interval);
@@ -97,26 +97,24 @@ void MessageQueue::add_to_active_list(PopupMsgWindow* _win)
 
 	QObject::connect(_win, &PopupMsgWindow::finish_fade_out, this, std::bind(&MessageQueue::remove_from_active_list, this, _win));		//remove after close
 
-	if (!m_active_list.empty())
+	if (m_active_list.empty())		//first message
 	{
-		PopupMsgWindow* previous = m_active_list.front();
-		QObject::connect(_win, &PopupMsgWindow::begin_moving_up, previous, &PopupMsgWindow::move_up);			//chain
-		QObject::connect(_win, &PopupMsgWindow::begin_moving_down, previous, &PopupMsgWindow::move_down);
-
+		m_active_list.push_front(_win);
+		unlock_processing();
+	}
+	else //there are already messages
+	{
+		//wait until first finish moving up
 		static QMetaObject::Connection connection;
-		connection = QObject::connect(previous, &PopupMsgWindow::finish_moving_up, this, [this]()
+		connection = QObject::connect(m_active_list.front(), &PopupMsgWindow::finish_moving_up, this, [this, _win]()
 		{
+			m_active_list.push_front(_win);
 			QObject::disconnect(connection);
 			unlock_processing();
 		});
 
-		m_active_list.push_front(_win);
-		previous->move_up();
-	}
-	else	//first message
-	{
-		m_active_list.push_front(_win);
-		unlock_processing();
+		for (auto& it : m_active_list)
+			it->move_up();
 	}
 }
 
@@ -134,14 +132,8 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 
 	if (*cwin != m_active_list.back())
 	{
+		//wait until back finish moving down
 		PopupMsgWindow* upper = *std::next(cwin);
-
-		if (*cwin != m_active_list.front())
-		{
-			PopupMsgWindow* lower = *std::prev(cwin);
-			QObject::connect(lower, &PopupMsgWindow::begin_moving_up, upper, &PopupMsgWindow::move_up);
-		}
-
 		static QMetaObject::Connection connection;
 		connection = QObject::connect(upper, &PopupMsgWindow::finish_moving_down, this, [this]()
 		{
@@ -149,7 +141,8 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 			unlock_processing();
 		});
 
-		upper->move_down();
+		for (auto it = std::next(cwin); it!= m_active_list.end(); ++it)
+			(*it)->move_down();
 	}
 	else
 		unlock_processing();

@@ -131,7 +131,7 @@ public slots:
 		QPoint begin_pos = pos();
 		QPoint end_pos = QPoint(begin_pos.x(), begin_pos.y() - frameGeometry().height());
 
-		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 200, false, this);
+		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 500, false, this);
 		QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_up);
 		animation->start(QAbstractAnimation::DeleteWhenStopped);
 		emit begin_moving_up();
@@ -142,7 +142,7 @@ public slots:
 		QPoint begin_pos = pos();
 		QPoint end_pos = QPoint(begin_pos.x(), begin_pos.y() + frameGeometry().height());
 
-		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 200, false, this);
+		ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 500, false, this);
 		QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_down);
 		animation->start(QAbstractAnimation::DeleteWhenStopped);
 		emit begin_moving_down();

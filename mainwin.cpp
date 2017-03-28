@@ -24,7 +24,7 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	size_t counter = 0;
 	QObject::connect(message_timer, &QTimer::timeout, this, [&counter]()
 	{
-		MessageQueue::instance() << QString::number(++counter);
+		MessageQueue::instance() << Message(MsgType(counter % 3), QString::number(++counter));
 	});
 
 	//controls
