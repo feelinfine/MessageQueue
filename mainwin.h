@@ -2,6 +2,7 @@
 #define MAINWIN_H
 
 #include <QtWidgets/QMainWindow>
+#include <QtCore/QFile>
 
 class MainWin : public QMainWindow
 {
@@ -10,6 +11,8 @@ class MainWin : public QMainWindow
 public:
 	MainWin(QWidget *parent = 0);
 	~MainWin();
+
+	QFile* out;
 };
 
 #endif // MAINWIN_H

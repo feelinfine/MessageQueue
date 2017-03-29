@@ -20,9 +20,13 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 	MessageQueue::instance().set_base_widget(this);
 
+	out = new QFile("log.txt");
+	bool res = out->open(QIODevice::WriteOnly | QIODevice::Text);
 
-	size_t counter = 0;
-	QObject::connect(message_timer, &QTimer::timeout, this, [&counter]()
+	MessageQueue::instance().set_output_stream(out);
+
+	static size_t counter = 0;
+	QObject::connect(message_timer, &QTimer::timeout, this, []()
 	{
 		MessageQueue::instance() << Message(MsgType(counter % 3), QString::number(++counter));
 	});
@@ -31,7 +35,7 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	QPushButton* start_messaging = new QPushButton("START", this);
 	start_messaging->setCheckable(true);
 
-	QObject::connect(start_messaging, &QPushButton::clicked, [start_messaging, message_timer](bool _checked)
+	QObject::connect(start_messaging, &QPushButton::clicked, [start_messaging, message_timer, this](bool _checked)
 	{
 			//for (int i = 0; i < 10; ++i)
 			//	MessageQueue::instance() << "Ololo";
@@ -43,15 +47,30 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 		}
 		else
 		{
+			out->close();
 			start_messaging->setText("START");
 			message_timer->stop();
 		}
 	});
 
 
+	QLabel* lbl = new QLabel("STATUS");
+
+	QObject::connect(&MessageQueue::instance(), &MessageQueue::locked, [lbl]() 
+	{
+		lbl->setStyleSheet("QLabel {background-color: red;}");
+	});
+
+	QObject::connect(&MessageQueue::instance(), &MessageQueue::unlocked, [lbl]()
+	{
+		lbl->setStyleSheet("QLabel {background-color: green;}");
+	});
+
 	//layout
 	QHBoxLayout* bottom_layout = new QHBoxLayout();
+	bottom_layout->addWidget(lbl);
 	bottom_layout->addWidget(start_messaging);
+
 	bottom_layout->addStretch(1);
 
 	QVBoxLayout* main_layout = new QVBoxLayout();

@@ -149,6 +149,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mainwin.cpp" />
     <ClCompile Include="MessageQueue.cpp" />
+    <ClCompile Include="PopupMessageWin.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwin.h">

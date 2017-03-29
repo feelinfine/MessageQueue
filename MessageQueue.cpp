@@ -1,6 +1,8 @@
 
 #include "MessageQueue.h"
 
+#include <QtCore/QStateMachine>
+
 MessageQueue& MessageQueue::instance(QWidget* _base_widget /*= nullptr*/, size_t _close_time /*= DEF_CLOSE_TIMER*/, size_t _queue_size /*= DEF_QUEUE_SIZE*/)
 {
 	static MessageQueue self(_base_widget, _close_time, _queue_size);	//C++11 thread safe, if C++03 use double-check-locking
@@ -22,23 +24,22 @@ void MessageQueue::set_limit_size(size_t _size)
 	m_queue_size = _size;
 }
 
-bool MessageQueue::try_push_message(const Message& _message)
-{
-	std::unique_lock<std::recursive_mutex> guard(m_rm, std::try_to_lock);
-
-	if (guard.owns_lock())
-	{
-		m_waiting_messages.push(_message);
-		return true;
-	}
-
-	return false;
-}
-
 void MessageQueue::push_message(const Message& _message)
 {
+	PopupMsgWindow* win = new PopupMsgWindow();	//WA_DeleteOnClose
+	win->set_base_widget(m_base_widget);
+	win->set_close_time(m_close_timer_value);
+	win->set_message(_message.text());
+
+	switch (_message.type())
+	{
+	case MsgType::INFO:		win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxInformation));	break;
+	case MsgType::WARNING:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxWarning));		break;
+	case MsgType::ERROR:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxCritical));		break;
+	}
+
 	std::lock_guard<std::recursive_mutex> guard(m_rm);
-	m_waiting_messages.push(_message);
+	m_waiting_messages.push(win);
 }
 
 const MessageQueue& MessageQueue::operator<<(const QString& _info)
@@ -57,6 +58,8 @@ MessageQueue::~MessageQueue()
 {
 }
 
+///////////////////////////////////////////////////////////
+
 MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLOSE_TIMER*/, size_t _queue_size /*= DEF_QUEUE_SIZE*/) :
 	m_queue_size(_queue_size), 
 	m_close_timer_value(_close_time), 
@@ -69,38 +72,48 @@ MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLO
 	timer->setInterval(m_processing_interval);
 	QObject::connect(timer, &QTimer::timeout, this, &MessageQueue::process_messages);
 	timer->start();
+
+	QStateMachine* machine = new QStateMachine(this);
+	QState* add_win_state = new QState(machine);
+	QState* remove_win_state = new QState(machine);
+	QState* busy_state = new QState(machine);
+
+	busy_state->addTransition(this, &MessageQueue::removing_msg, remove_win_state);
+	busy_state->addTransition(this, &MessageQueue::adding_msg, add_win_state);
+	add_win_state->addTransition(this, &MessageQueue::busy, busy_state);
+	remove_win_state->addTransition(this, &MessageQueue::busy, busy_state);
+
+	QObject::connect(add_win_state, &QState::entered, this, [this]()
+	{
+		m_out->write("Add window state");
+		std::lock_guard<std::recursive_mutex> guard(m_rm);
+		add_to_active_list(m_waiting_messages.front());
+		m_waiting_messages.pop();
+	});
+
+	QObject::connect(remove_win_state, &QState::entered, this, [this]()
+	{
+		m_out->write("Remove window state");
+		remove_from_active_list(m_remove_list.front());
+		m_remove_list.pop();
+	});
+
+	machine->setInitialState(busy_state);
+	machine->start();
 }
 
-void MessageQueue::show_message(MsgType _mtype, const QString& _str)
+void MessageQueue::add_to_remove_list(PopupMsgWindow* _win)
 {
-	PopupMsgWindow* win = new PopupMsgWindow();	//WA_DeleteOnClose
-	win->set_base_widget(m_base_widget);
-	win->set_close_time(m_close_timer_value);
-	win->set_message(_str);
-
-	switch (_mtype)
-	{
-	case MsgType::INFO:		win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxInformation));	break;
-	case MsgType::WARNING:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxWarning));		break;
-	case MsgType::ERROR:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxCritical));		break;
-	}
-
-	add_to_active_list(win);
-
-	win->fade_in();
-	win->show();
+	m_remove_list.push(_win);
 }
 
 void MessageQueue::add_to_active_list(PopupMsgWindow* _win)
 {
-	lock_processing();
-
-	QObject::connect(_win, &PopupMsgWindow::finish_fade_out, this, std::bind(&MessageQueue::remove_from_active_list, this, _win));		//remove after close
+	QObject::connect(_win, &PopupMsgWindow::finish_fade_out, this, std::bind(&MessageQueue::add_to_remove_list, this, _win));		//remove after close
 
 	if (m_active_list.empty())		//first message
 	{
-		m_active_list.push_front(_win);
-		unlock_processing();
+		QObject::connect(_win, &PopupMsgWindow::finish_fade_in, this, &MessageQueue::busy);
 	}
 	else //there are already messages
 	{
@@ -108,27 +121,26 @@ void MessageQueue::add_to_active_list(PopupMsgWindow* _win)
 		static QMetaObject::Connection connection;
 		connection = QObject::connect(m_active_list.front(), &PopupMsgWindow::finish_moving_up, this, [this, _win]()
 		{
-			m_active_list.push_front(_win);
 			QObject::disconnect(connection);
-			unlock_processing();
+			emit busy();
 		});
 
 		for (auto& it : m_active_list)
 			it->move_up();
 	}
+
+	m_active_list.push_front(_win);
+
+	_win->fade_in();
+	_win->show();
 }
 
 void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 {
-	lock_processing();
-
 	std::list<PopupMsgWindow*>::iterator cwin = std::find(m_active_list.begin(), m_active_list.end(), _win);
 
 	if (cwin == m_active_list.end())
-	{
-		unlock_processing();
 		return;
-	}
 
 	if (*cwin != m_active_list.back())
 	{
@@ -136,38 +148,34 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 		PopupMsgWindow* upper = *std::next(cwin);
 		static QMetaObject::Connection connection;
 		connection = QObject::connect(upper, &PopupMsgWindow::finish_moving_down, this, [this]()
-		{
+		{		
 			QObject::disconnect(connection);
-			unlock_processing();
+			emit busy();
 		});
 
-		for (auto it = std::next(cwin); it!= m_active_list.end(); ++it)
+		for (auto it = std::next(cwin); it != m_active_list.end(); ++it)
 			(*it)->move_down();
 	}
 	else
-		unlock_processing();
+		emit busy();
+
 
 	m_active_list.remove(*cwin);
 }
 
 void MessageQueue::process_messages()
 {
-	if (m_waiting_messages.empty() || !m_processing)
+	if (m_waiting_messages.empty() && m_remove_list.empty())
 		return;
 
-	std::lock_guard<std::recursive_mutex> guard(m_rm);
+	if (!m_remove_list.empty())
+		emit removing_msg();
 
-	Message msg = m_waiting_messages.front();
-	show_message(msg.type(), msg.text());
-	m_waiting_messages.pop();
+	if (!m_waiting_messages.empty())
+		emit adding_msg();
 }
 
-void MessageQueue::lock_processing()
+void MessageQueue::set_output_stream(QIODevice* _out)
 {
-	m_processing = false;
-}
-
-void MessageQueue::unlock_processing()
-{
-	m_processing = true;
+	m_out = _out;
 }
