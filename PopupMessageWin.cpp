@@ -6,7 +6,6 @@ PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_fi
 
 	setWindowFlags(windowFlags() | Qt::Tool);
 	setWindowOpacity(0);
-	setAttribute(Qt::WA_DeleteOnClose);
 
 	m_out = new QPlainTextEdit();
 	m_out->setReadOnly(true);
@@ -43,7 +42,6 @@ void PopupMsgWindow::set_icon(const QIcon& _icon)
 
 PopupMsgWindow::~PopupMsgWindow()
 {
-
 }
 
 void PopupMsgWindow::set_base_widget(QWidget* _widget)
@@ -120,11 +118,6 @@ void PopupMsgWindow::fade_in()
 	ForcedStartAnimation* animation = new ForcedStartAnimation(this, "windowOpacity", 0.0, 1.0, 200, false, this);
 	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_fade_in);
 	animation->start(QAbstractAnimation::DeleteWhenStopped);
-	//QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity");
-	//animation->setDuration(200);
-	//animation->setStartValue(0.0);
-	//animation->setEndValue(1.0);
-	//animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void PopupMsgWindow::fade_out()

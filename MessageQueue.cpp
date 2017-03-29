@@ -85,7 +85,6 @@ MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLO
 
 	QObject::connect(add_win_state, &QState::entered, this, [this]()
 	{
-		m_out->write("Add window state");
 		std::lock_guard<std::recursive_mutex> guard(m_rm);
 		add_to_active_list(m_waiting_messages.front());
 		m_waiting_messages.pop();
@@ -93,8 +92,8 @@ MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLO
 
 	QObject::connect(remove_win_state, &QState::entered, this, [this]()
 	{
-		m_out->write("Remove window state");
 		remove_from_active_list(m_remove_list.front());
+		delete m_remove_list.front();						//i realy don't like raw pointers, but this window has a parent
 		m_remove_list.pop();
 	});
 
@@ -147,9 +146,10 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 		//wait until back finish moving down
 		PopupMsgWindow* upper = *std::next(cwin);
 		static QMetaObject::Connection connection;
-		connection = QObject::connect(upper, &PopupMsgWindow::finish_moving_down, this, [this]()
+		connection = QObject::connect(upper, &PopupMsgWindow::finish_moving_down, this, [cwin, this]()
 		{		
 			QObject::disconnect(connection);
+			m_active_list.remove(*cwin);
 			emit busy();
 		});
 
@@ -157,10 +157,10 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 			(*it)->move_down();
 	}
 	else
+	{
+		m_active_list.remove(*cwin);
 		emit busy();
-
-
-	m_active_list.remove(*cwin);
+	}	
 }
 
 void MessageQueue::process_messages()
