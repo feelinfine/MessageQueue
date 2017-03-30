@@ -2,7 +2,10 @@
 
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QDoubleSpinBox>
+
 #include <QtCore/QTimer>
+#include <QtCore/QThread>
 
 #include "MessageQueue.h"
 
@@ -15,67 +18,120 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	const size_t TIMER_INTERVAL = 1000; //msec
 
 	//timer
-	QTimer* message_timer = new QTimer();
-	message_timer->setInterval(TIMER_INTERVAL);
-
-	MessageQueue::instance().set_base_widget(this);
+	MessageQueue& message_queue = MessageQueue::instance();
+	message_queue.set_base_widget(this);
 
 	out = new QFile("log.txt");
 	bool res = out->open(QIODevice::WriteOnly | QIODevice::Text);
 
-	MessageQueue::instance().set_output_stream(out);
+	message_queue.set_output_device(out);
 
-	static size_t counter = 0;
-	QObject::connect(message_timer, &QTimer::timeout, this, []()
+	//Thread 1
+	QDoubleSpinBox* thr1_time_interval = new QDoubleSpinBox();
+	thr1_time_interval->setRange(100, 10000);
+
+	QPushButton* thr1_start_messaging = new QPushButton("START", this);
+	thr1_start_messaging->setCheckable(true);
+
+	QTimer* thr1_message_timer = new QTimer();
+
+	Worker* info_wrk = new Worker();
+
+	QObject::connect(thr1_message_timer, &QTimer::timeout, info_wrk, std::bind(&Worker::send_one, info_wrk, &message_queue, MsgType::INFO, "<font color=red>From thread 1:</font> "), Qt::QueuedConnection);
+
+	QObject::connect(thr1_start_messaging, &QPushButton::clicked, [thr1_start_messaging, thr1_time_interval, thr1_message_timer](bool _checked)
 	{
-		MessageQueue::instance() << Message(MsgType(counter % 3), QString::number(++counter));
-	});
-
-	//controls
-	QPushButton* start_messaging = new QPushButton("START", this);
-	start_messaging->setCheckable(true);
-
-	QObject::connect(start_messaging, &QPushButton::clicked, [start_messaging, message_timer, this](bool _checked)
-	{
-			//for (int i = 0; i < 10; ++i)
-			//	MessageQueue::instance() << "Ololo";
-
 		if (_checked)
 		{
-			start_messaging->setText("STOP");
-			message_timer->start();
+			thr1_message_timer->setInterval(thr1_time_interval->value());
+			thr1_start_messaging->setText("STOP");
+			thr1_message_timer->start();
 		}
 		else
 		{
-			out->close();
-			start_messaging->setText("START");
-			message_timer->stop();
+			thr1_start_messaging->setText("START");
+			thr1_message_timer->stop();
 		}
 	});
 
 
-	QLabel* lbl = new QLabel("STATUS");
+	QHBoxLayout* thr1_layout = new QHBoxLayout;
+	thr1_layout->addWidget(new QLabel("Thread 1"));
+	thr1_layout->addWidget(thr1_start_messaging);
+	thr1_layout->addWidget(thr1_time_interval);
+	thr1_layout->addStretch(1);
 
-	QObject::connect(&MessageQueue::instance(), &MessageQueue::locked, [lbl]() 
+	//Thread 2
+	QDoubleSpinBox* thr2_time_interval = new QDoubleSpinBox();
+	thr2_time_interval->setRange(100, 10000);
+
+	QPushButton* thr2_start_messaging = new QPushButton("START", this);
+	thr2_start_messaging->setCheckable(true);
+
+	QTimer* thr2_message_timer = new QTimer();
+	QThread* thr2 = new QThread(this);
+
+	Worker* warning_wrk = new Worker();
+	warning_wrk->moveToThread(thr2);
+	thr2->start();
+
+	QObject::connect(thr2_message_timer, &QTimer::timeout, warning_wrk, std::bind(&Worker::send_one, warning_wrk, &message_queue, MsgType::WARNING, "From thread 2: "), Qt::QueuedConnection);
+
+	QObject::connect(thr2_start_messaging, &QPushButton::clicked, [thr2_start_messaging, thr2_time_interval, thr2_message_timer](bool _checked)
 	{
-		lbl->setStyleSheet("QLabel {background-color: red;}");
+		if (_checked)
+		{
+			thr2_message_timer->setInterval(thr2_time_interval->value());
+			thr2_start_messaging->setText("STOP");
+			thr2_message_timer->start();
+		}
+		else
+		{
+			thr2_start_messaging->setText("START");
+			thr2_message_timer->stop();
+		}
 	});
 
-	QObject::connect(&MessageQueue::instance(), &MessageQueue::unlocked, [lbl]()
-	{
-		lbl->setStyleSheet("QLabel {background-color: green;}");
-	});
+	QHBoxLayout* thr2_layout = new QHBoxLayout;
+	thr2_layout->addWidget(new QLabel("Thread 2"));
+	thr2_layout->addWidget(thr2_start_messaging);
+	thr2_layout->addWidget(thr2_time_interval);
+	thr2_layout->addStretch(1);
+
+	//Thread 3
+	QPushButton* thr3_start_messaging = new QPushButton("Push 10 messages");
+	QThread* thr3 = new QThread(this);
+
+	Worker* error_wrk = new Worker();
+	error_wrk->moveToThread(thr3);
+	thr3->start();
+
+	QObject::connect(thr3_start_messaging, &QPushButton::clicked, error_wrk, std::bind(&Worker::send_ten, error_wrk, &message_queue, MsgType::ERROR, "From thread 3: "), Qt::QueuedConnection);
+
+	QHBoxLayout* thr3_layout = new QHBoxLayout;
+	thr3_layout->addWidget(new QLabel("Thread 3"));
+	thr3_layout->addWidget(thr3_start_messaging);
+	thr3_layout->addStretch(1);
 
 	//layout
-	QHBoxLayout* bottom_layout = new QHBoxLayout();
-	bottom_layout->addWidget(lbl);
-	bottom_layout->addWidget(start_messaging);
+	QLabel* lbl_counter = new QLabel("0");
 
-	bottom_layout->addStretch(1);
+	QObject::connect(&message_queue, &MessageQueue::size_changed, this, [lbl_counter](size_t _size)
+	{
+		lbl_counter->setText(QString::number(_size));
+	});
+
+	QHBoxLayout* message_counter_layout = new QHBoxLayout;
+	message_counter_layout->addWidget(new QLabel("Queued messages: "));
+	message_counter_layout->addWidget(lbl_counter);
+	message_counter_layout->addStretch(1);
 
 	QVBoxLayout* main_layout = new QVBoxLayout();
+	main_layout->addLayout(message_counter_layout);
 	main_layout->addStretch(1);
-	main_layout->addLayout(bottom_layout);
+	main_layout->addLayout(thr1_layout);
+	main_layout->addLayout(thr2_layout);
+	main_layout->addLayout(thr3_layout);
 
 	QWidget* main_widget = new QWidget();
 	main_widget->setLayout(main_layout);
@@ -87,5 +143,4 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 MainWin::~MainWin()
 {
-
 }

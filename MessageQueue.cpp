@@ -3,43 +3,17 @@
 
 #include <QtCore/QStateMachine>
 
-MessageQueue& MessageQueue::instance(QWidget* _base_widget /*= nullptr*/, size_t _close_time /*= DEF_CLOSE_TIMER*/, size_t _queue_size /*= DEF_QUEUE_SIZE*/)
+MessageQueue& MessageQueue::instance()
 {
-	static MessageQueue self(_base_widget, _close_time, _queue_size);	//C++11 thread safe, if C++03 use double-check-locking
+	static MessageQueue self;	//C++11 thread safe, if C++03 use double-check-locking
 	return self;
-}
-
-void MessageQueue::set_base_widget(QWidget* _base_widget) //no owns
-{
-	m_base_widget = _base_widget;
-}
-
-void MessageQueue::set_close_timer(size_t _msec)
-{
-	m_close_timer_value = _msec;
-}
-
-void MessageQueue::set_limit_size(size_t _size)
-{
-	m_queue_size = _size;
 }
 
 void MessageQueue::push_message(const Message& _message)
 {
-	PopupMsgWindow* win = new PopupMsgWindow();	//WA_DeleteOnClose
-	win->set_base_widget(m_base_widget);
-	win->set_close_time(m_close_timer_value);
-	win->set_message(_message.text());
-
-	switch (_message.type())
-	{
-	case MsgType::INFO:		win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxInformation));	break;
-	case MsgType::WARNING:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxWarning));		break;
-	case MsgType::ERROR:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxCritical));		break;
-	}
-
 	std::lock_guard<std::recursive_mutex> guard(m_rm);
-	m_waiting_messages.push(win);
+	m_waiting_messages.push(_message);
+	emit size_changed(m_waiting_messages.size());
 }
 
 const MessageQueue& MessageQueue::operator<<(const QString& _info)
@@ -58,15 +32,9 @@ MessageQueue::~MessageQueue()
 {
 }
 
-///////////////////////////////////////////////////////////
-
-MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLOSE_TIMER*/, size_t _queue_size /*= DEF_QUEUE_SIZE*/) :
-	m_queue_size(_queue_size), 
-	m_close_timer_value(_close_time), 
-	m_base_widget(_main_widget),
-	m_processing(true)
+MessageQueue::MessageQueue() : m_active_list_size_limit(DEF_ACTIVE_LIST_LIMIT), m_close_timer_value(DEF_CLOSE_TIMER), m_processing_interval(DEF_PROCESSING_INTERVAL), m_base_widget(nullptr)
 {
-	m_processing_interval = 50;
+	m_msg_window_size = QSize(DEF_WIN_WIDTH, DEF_WIN_HEIGTH);
 
 	QTimer* timer = new QTimer(this);
 	timer->setInterval(m_processing_interval);
@@ -78,22 +46,43 @@ MessageQueue::MessageQueue(QWidget* _main_widget, size_t _close_time /*= DEF_CLO
 	QState* remove_win_state = new QState(machine);
 	QState* busy_state = new QState(machine);
 
-	busy_state->addTransition(this, &MessageQueue::removing_msg, remove_win_state);
-	busy_state->addTransition(this, &MessageQueue::adding_msg, add_win_state);
+	busy_state->addTransition(this, &MessageQueue::remove_msg, remove_win_state);
+	busy_state->addTransition(this, &MessageQueue::add_msg, add_win_state);
 	add_win_state->addTransition(this, &MessageQueue::busy, busy_state);
 	remove_win_state->addTransition(this, &MessageQueue::busy, busy_state);
 
 	QObject::connect(add_win_state, &QState::entered, this, [this]()
 	{
 		std::lock_guard<std::recursive_mutex> guard(m_rm);
-		add_to_active_list(m_waiting_messages.front());
+
+		if (m_active_list.size() >= m_active_list_size_limit)
+		{
+			emit busy();
+			return;
+		}
+
+		PopupMsgWindow* win = new PopupMsgWindow();
+		win->setFixedSize(m_msg_window_size);
+		win->set_base_widget(m_base_widget);
+		win->set_close_time(m_close_timer_value);
+		win->set_message(m_waiting_messages.front().text());
+
+		switch (m_waiting_messages.front().type())
+		{
+		case MsgType::INFO:		win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxInformation));	break;
+		case MsgType::WARNING:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxWarning));		break;
+		case MsgType::ERROR:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxCritical));		break;
+		}
+
+		add_to_active_list(win);
 		m_waiting_messages.pop();
+		emit size_changed(m_waiting_messages.size());
 	});
 
-	QObject::connect(remove_win_state, &QState::entered, this, [this]()
+	QObject::connect(remove_win_state, &QState::entered, this, [this]
 	{
 		remove_from_active_list(m_remove_list.front());
-		delete m_remove_list.front();						//i realy don't like raw pointers, but this window has a parent
+		delete m_remove_list.front();						//I really don't like raw pointers, but this window has a parent and shared_ptr (QSharedPointer) is not a good idea here
 		m_remove_list.pop();
 	});
 
@@ -169,13 +158,92 @@ void MessageQueue::process_messages()
 		return;
 
 	if (!m_remove_list.empty())
-		emit removing_msg();
+		emit remove_msg();
 
 	if (!m_waiting_messages.empty())
-		emit adding_msg();
+		emit add_msg();
 }
 
-void MessageQueue::set_output_stream(QIODevice* _out)
+/*-------------------------------------*/
+
+void MessageQueue::set_processing_interval(size_t _msec)
+{
+	m_processing_interval = _msec;
+}
+
+size_t MessageQueue::processing_interval() const
+{
+	return m_processing_interval;
+}
+
+/*-------------------------------------*/
+
+void MessageQueue::set_base_widget(QWidget* _base_widget) //no owns
+{
+	m_base_widget = _base_widget;
+}
+
+QWidget* MessageQueue::base_widget() const
+{
+	return m_base_widget;
+}
+
+/*-------------------------------------*/
+
+void MessageQueue::set_msg_close_time(size_t _msec)
+{
+	m_close_timer_value = _msec;
+}
+
+size_t MessageQueue::msg_close_time() const
+{
+	return m_close_timer_value;
+}
+
+/*-------------------------------------*/
+
+void MessageQueue::set_active_size_limit(size_t _size)
+{
+	m_active_list_size_limit = _size;
+}
+
+size_t MessageQueue::active_size_limit() const
+{
+	return m_active_list_size_limit;
+}
+
+/*-------------------------------------*/
+
+void MessageQueue::set_output_device(QIODevice* _out)
 {
 	m_out = _out;
+}
+
+QIODevice* MessageQueue::output_device() const
+{
+	return m_out;
+}
+
+/*-------------------------------------*/
+
+void MessageQueue::set_waiting_cutoff_size(size_t _size)
+{
+	m_waiting_list_size_limit = _size;
+}
+
+size_t MessageQueue::waiting_cutoff_size() const
+{
+	return m_waiting_list_size_limit;
+}
+
+/*-------------------------------------*/
+
+void MessageQueue::set_window_size(const QSize& _size)
+{
+	m_msg_window_size = _size;
+}
+
+QSize MessageQueue::window_size() const
+{
+	return m_msg_window_size;
 }

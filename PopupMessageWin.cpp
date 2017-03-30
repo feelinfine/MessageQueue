@@ -1,6 +1,6 @@
 #include "PopupMessageWin.h"
 
-PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_first_show(true), m_closed(false), m_close_time(DEF_CLOSE_TIME)
+PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_first_show(true), m_closed(false)
 {
 	m_close_timer = new QTimer(this);	//owns
 
@@ -29,8 +29,6 @@ PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_fi
 	main_layout->addLayout(central_layout);
 	main_layout->addStretch(1);
 	main_layout->addLayout(bottom_layout);
-
-	setFixedSize(DEF_WIN_WIDTH, DEF_WIN_HEIGTH);
 
 	setLayout(main_layout);
 }
@@ -136,7 +134,7 @@ void PopupMsgWindow::fade_out_close()
 
 void PopupMsgWindow::set_message(const QString& _str)
 {
-	m_out->setPlainText(_str);
+	m_out->appendHtml(_str);
 }
 
 void PopupMsgWindow::start_close_timer()

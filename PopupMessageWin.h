@@ -32,11 +32,6 @@ public:
 class PopupMsgWindow : public QDialog
 {
 	Q_OBJECT
-
-	const size_t DEF_WIN_WIDTH = 300;
-	const size_t DEF_WIN_HEIGTH = 150;
-	const size_t DEF_CLOSE_TIME = 5000;
-
 public:
 	PopupMsgWindow();
 

@@ -1,11 +1,9 @@
 #pragma once
 
 #include <list>
-#include <functional>
 #include <queue>
 #include <mutex>
 
-#include <QtWidgets/QStyle>
 #include <QtCore/QIODevice>
 
 #include "PopupMessageWin.h"
@@ -15,54 +13,70 @@ class MessageQueue final : public QObject
 {
 	Q_OBJECT
 
-	static const size_t DEF_QUEUE_SIZE = 4;
-	static const size_t DEF_CLOSE_TIMER = 4000;	//msec
+	const size_t DEF_ACTIVE_LIST_LIMIT = 3;
+	const size_t DEF_CLOSE_TIMER = 5000;	//msec
+	const size_t DEF_WIN_WIDTH = 300;
+	const size_t DEF_WIN_HEIGTH = 150;
+	const size_t DEF_PROCESSING_INTERVAL = 50; //msec
 
 public:
-	static MessageQueue& instance(QWidget* _base_widget = nullptr, size_t _close_time = DEF_CLOSE_TIMER, size_t _queue_size = DEF_QUEUE_SIZE);
+	static MessageQueue& instance();
 
+	void set_processing_interval(size_t _msec);
 	void set_base_widget(QWidget* _base_widget);	//no owns
-	void set_close_timer(size_t _msec);
-	void set_limit_size(size_t _size);
-	void set_output_stream(QIODevice* _out);
-	void push_message(const Message& _message);
+	void set_msg_close_time(size_t _msec);
+	void set_active_size_limit(size_t _size);
+	void set_waiting_cutoff_size(size_t _size);
+	void set_output_device(QIODevice* _out);
+	void set_window_size(const QSize& _size);
+
+	size_t processing_interval() const;
+	QWidget* base_widget() const;
+	size_t msg_close_time() const;
+	size_t active_size_limit() const;
+	size_t waiting_cutoff_size() const;
+	QIODevice* output_device() const;
+	QSize window_size() const;
+
 	const MessageQueue& operator << (const QString& _info);
 	const MessageQueue& operator << (const Message& _msg);
+
 	~MessageQueue();
 
-private:
-	MessageQueue(QWidget* _main_widget, size_t _close_time = DEF_CLOSE_TIMER, size_t _queue_size = DEF_QUEUE_SIZE);
+public slots:
+	void push_message(const Message& _message);
 
-	MessageQueue(const MessageQueue&) = delete;
-	MessageQueue& operator= (const MessageQueue&) = delete;
-	void show_message(MsgType _mtype, const QString& _str);
-
-	void add_to_active_list(PopupMsgWindow* _win);
-	void add_to_remove_list(PopupMsgWindow* _win);
-
-	void remove_from_active_list(PopupMsgWindow* _win);
+signals:
+	void busy();
+	void add_msg();
+	void remove_msg();
+	void size_changed(size_t _size);
 
 private slots:
 	void process_messages();
 
-signals:
-	void locked();
-	void unlocked();
-	void busy();
-	void adding_msg();
-	void removing_msg();
+private:
+	MessageQueue();
+
+	MessageQueue(const MessageQueue&) = delete;
+	MessageQueue& operator= (const MessageQueue&) = delete;
+
+	void show_message(MsgType _mtype, const QString& _str);
+	void add_to_active_list(PopupMsgWindow* _win);
+	void add_to_remove_list(PopupMsgWindow* _win);
+	void remove_from_active_list(PopupMsgWindow* _win);
 
 private:
-	bool m_processing;
-	size_t m_queue_size;
+	size_t m_active_list_size_limit;
+	size_t m_waiting_list_size_limit;
 	size_t m_close_timer_value;
 	size_t m_processing_interval;
-	QWidget* m_base_widget;
-	std::list<PopupMsgWindow*> m_active_list;
-	std::queue<PopupMsgWindow*> m_waiting_messages;
-	std::queue<PopupMsgWindow*> m_remove_list;
 	std::recursive_mutex m_rm;
 	QIODevice* m_out;
+	QSize m_msg_window_size;
+	QWidget* m_base_widget;
 
-	std::function<void(PopupMsgWindow*)> m_processing_function;
+	std::list<PopupMsgWindow*> m_active_list;
+	std::queue<Message> m_waiting_messages;
+	std::queue<PopupMsgWindow*> m_remove_list;
 };
