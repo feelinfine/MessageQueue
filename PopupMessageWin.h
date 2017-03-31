@@ -16,26 +16,13 @@
 
 #include <memory>
 
-class ForcedStartAnimation : public QPropertyAnimation
-{
-public:
-	ForcedStartAnimation(QObject* _target, const QByteArray& _property, const QVariant& _start_val, const QVariant& _end_val, size_t _duration, bool _start, QObject* _parent = nullptr) : QPropertyAnimation(_target, _property, _parent)
-	{
-		setDuration(_duration);
-		setStartValue(_start_val);
-		setEndValue(_end_val);
-		if (_start)
-			start(QAbstractAnimation::DeleteWhenStopped);
-	}
-};
+#include "Message.h"
 
 class PopupMsgWindow : public QDialog
 {
 	Q_OBJECT
 public:
 	PopupMsgWindow();
-
-	void set_icon(const QIcon& _icon);
 	virtual ~PopupMsgWindow();
 	void set_base_widget(QWidget* _widget);
 	void set_close_time(size_t _msec);
@@ -45,10 +32,8 @@ public:
 public slots:
 	void move_up();
 	void move_down();
-	void fade_in();
 	void fade_out();
-	void fade_out_close();
-	virtual void set_message(const QString& _str);;
+	virtual void set_message(const Message& _message);
 
 signals:
 	void begin_moving_down();
@@ -60,9 +45,9 @@ signals:
 
 private:
 	void start_close_timer();
+	void fade_in();
 
 private:
-	bool m_forced_close;
 	bool m_first_show;
 	size_t m_close_time;
 	QWidget* m_binded_widget;
@@ -70,5 +55,5 @@ private:
 	QTimer* m_close_timer;
 
 	QLabel* m_icon_lbl;
-	QPlainTextEdit* m_out;
+	QPlainTextEdit* m_viewer;
 };

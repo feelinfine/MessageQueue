@@ -1,16 +1,16 @@
 #include "PopupMessageWin.h"
 
-PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_first_show(true), m_closed(false)
+PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_first_show(true), m_closed(false)
 {
 	m_close_timer = new QTimer(this);	//owns
 
 	setWindowFlags(windowFlags() | Qt::Tool);
 	setWindowOpacity(0);
 
-	m_out = new QPlainTextEdit();
-	m_out->setReadOnly(true);
-	m_out->setStyleSheet("QPlainTextEdit {background-color: transparent;} ");
-	m_out->setFrameStyle(QFrame::NoFrame);
+	m_viewer = new QPlainTextEdit();
+	m_viewer->setReadOnly(true);
+	m_viewer->setStyleSheet("QPlainTextEdit {background-color: transparent;} ");
+	m_viewer->setFrameStyle(QFrame::NoFrame);
 
 	m_icon_lbl = new QLabel();
 
@@ -23,7 +23,7 @@ PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_fi
 
 	QHBoxLayout* central_layout = new QHBoxLayout();
 	central_layout->addWidget(m_icon_lbl);
-	central_layout->addWidget(m_out);
+	central_layout->addWidget(m_viewer);
 
 	QVBoxLayout* main_layout = new QVBoxLayout();
 	main_layout->addLayout(central_layout);
@@ -31,11 +31,6 @@ PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), m_forced_close(false), m_fi
 	main_layout->addLayout(bottom_layout);
 
 	setLayout(main_layout);
-}
-
-void PopupMsgWindow::set_icon(const QIcon& _icon)
-{
-	m_icon_lbl->setPixmap(_icon.pixmap(_icon.actualSize(QSize(32, 32))));
 }
 
 PopupMsgWindow::~PopupMsgWindow()
@@ -66,14 +61,13 @@ void PopupMsgWindow::closeEvent(QCloseEvent* _e)
 	if (m_close_timer->isActive())
 		m_close_timer->stop();
 
-	if (!m_forced_close)
+	QObject::connect(this, &PopupMsgWindow::finish_fade_out, [this, _e] 
 	{
-		_e->ignore();
-		fade_out_close();
-		return;
-	}
+		QDialog::closeEvent(_e);
+	});
 
-	QDialog::closeEvent(_e);
+	fade_out();
+	_e->ignore();
 }
 
 void PopupMsgWindow::showEvent(QShowEvent* _e)
@@ -82,6 +76,8 @@ void PopupMsgWindow::showEvent(QShowEvent* _e)
 		start_close_timer();
 
 	QDialog::showEvent(_e);
+
+	fade_in();
 }
 
 void PopupMsgWindow::move_up()
@@ -89,7 +85,10 @@ void PopupMsgWindow::move_up()
 	QPoint begin_pos = pos();
 	QPoint end_pos = QPoint(begin_pos.x(), begin_pos.y() - frameGeometry().height());
 
-	ForcedStartAnimation* animation = new ForcedStartAnimation(this, "pos", begin_pos, end_pos, 500, false, this);
+	QPropertyAnimation* animation = new QPropertyAnimation(this, "pos", this);
+	animation->setStartValue(begin_pos);
+	animation->setEndValue(end_pos);
+	animation->setDuration(500);
 	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_up);
 	animation->start(QAbstractAnimation::DeleteWhenStopped);
 	emit begin_moving_up();
@@ -113,28 +112,31 @@ void PopupMsgWindow::move_down()
 
 void PopupMsgWindow::fade_in()
 {
-	ForcedStartAnimation* animation = new ForcedStartAnimation(this, "windowOpacity", 0.0, 1.0, 200, false, this);
+	QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity", this);
+	animation->setStartValue(0.0);
+	animation->setEndValue(1.0);
+	animation->setDuration(200);
+
 	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_fade_in);
 	animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void PopupMsgWindow::fade_out()
 {
-	ForcedStartAnimation* animation = new ForcedStartAnimation(this, "windowOpacity", 1.0, 0.0, 200, false, this);
+	QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity", this);
+	animation->setStartValue(1.0);
+	animation->setEndValue(0.0);
+	animation->setDuration(200);
+
 	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_fade_out);
 	animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-void PopupMsgWindow::fade_out_close()
+void PopupMsgWindow::set_message(const Message& _message)
 {
-	m_forced_close = true;
-	QObject::connect(this, &PopupMsgWindow::finish_fade_out, &PopupMsgWindow::close);
-	fade_out();
-}
-
-void PopupMsgWindow::set_message(const QString& _str)
-{
-	m_out->appendHtml(_str);
+	setWindowTitle(_message.title());
+	m_icon_lbl->setPixmap(_message.pixmap());
+	m_viewer->appendHtml(_message.text());
 }
 
 void PopupMsgWindow::start_close_timer()

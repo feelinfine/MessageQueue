@@ -50,18 +50,16 @@ signals:
 	void busy();
 	void add_msg();
 	void remove_msg();
-	void size_changed(size_t _size);
+	void waiting_list_size_changed(size_t _size);
 
 private slots:
 	void process_messages();
 
 private:
 	MessageQueue();
-
 	MessageQueue(const MessageQueue&) = delete;
 	MessageQueue& operator= (const MessageQueue&) = delete;
 
-	void show_message(MsgType _mtype, const QString& _str);
 	void add_to_active_list(PopupMsgWindow* _win);
 	void add_to_remove_list(PopupMsgWindow* _win);
 	void remove_from_active_list(PopupMsgWindow* _win);

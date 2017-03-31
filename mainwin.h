@@ -5,7 +5,7 @@
 #include <QtCore/QFile>
 #include <QtCore/QThread>
 
-#include "Message.h"
+#include "DefaultMessages.h"
 #include "MessageQueue.h"
 
 class Worker : public QObject
@@ -13,15 +13,15 @@ class Worker : public QObject
 	Q_OBJECT
 
 public slots:
-	void send_one(MessageQueue* _msgqueue, MsgType _mtype, const QString& _msg)
+	void send_one(MessageQueue* _msgqueue, const QString& _msg)
 	{
-		*_msgqueue << Message(_mtype, _msg + QString("0x%1").arg((int)QThread::currentThread()));
+		*_msgqueue << WarnMessage(_msg + QString("0x%1").arg((int)QThread::currentThread()));
 	}
 
-	void send_ten(MessageQueue* _msgqueue, MsgType _mtype, const QString& _msg)
+	void send_ten(MessageQueue* _msgqueue, const QString& _msg)
 	{
 		for (int i = 0; i < 10; ++i)
-			*_msgqueue << Message(_mtype, _msg + QString("0x%1").arg((int)QThread::currentThread()));
+			*_msgqueue << WarnMessage(_msg + QString("0x%1").arg((int)QThread::currentThread()));
 	}
 };
 

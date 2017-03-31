@@ -56,10 +56,19 @@
     <ClCompile Include="GeneratedFiles\Release\moc_MessageQueue.cpp">
       <Filter>Generated Files\Release</Filter>
     </ClCompile>
-    <ClCompile Include="MessageQueue.cpp">
+    <ClCompile Include="PopupMessageWin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PopupMessageWin.cpp">
+    <ClCompile Include="GeneratedFiles\Debug\moc_Message.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_Message.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="Message.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MessageQueue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -67,15 +76,18 @@
     <CustomBuild Include="mainwin.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="MessageQueue.h">
+    <CustomBuild Include="PopupMessageWin.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="PopupMessageWin.h">
+    <CustomBuild Include="Message.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="MessageQueue.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Message.h">
+    <ClInclude Include="DefaultMessages.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

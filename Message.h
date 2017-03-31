@@ -1,40 +1,57 @@
 #pragma once
 
+#include <QtCore/QObject>
 #include <QtCore/QString>
+#include <QtGui/QPixmap>
 
-enum class MsgType
+enum class DropBehavior
 {
-	INFO,
-	WARNING,
-	ERROR
+	NO_DROP,
+	DROP_IF_LIMITED,
+	DROP_IF_THREAD_CONFLICT
 };
 
-class Message
+enum class LogBehavior
 {
+	WRITE_TO_LOG,
+	DONT_WRITE_TO_LOG
+};
+
+class Message : public QObject
+{
+	Q_OBJECT
+
 public:
-	Message(MsgType _type, const QString& _msg) : m_msg(_msg), m_type(_type) {};
+	Message(QObject* _parent = nullptr);
+	Message(const QString& _title, const QString& _text, QObject* _parent = nullptr);
+	Message(const QString& _prefix, const QString& _title, const QString& _text, QObject* _parent = nullptr);
+	Message(const QString& _prefix, const QString& _title, const QString& _text, const QPixmap& _pixmap, QObject* _parent = nullptr);
+	Message(const Message& _other);
 
-	QString text() const
-	{
-		return m_msg;
-	}
+	QString text() const;
+	QString title() const;
+	QString prefix() const;
+	DropBehavior drop_behavior() const;
+	LogBehavior log_behavior() const;
+	QPixmap pixmap() const;
 
-	MsgType type() const
-	{
-		return m_type;
-	}
+	virtual ~Message();
 
-	void set_text(const QString& _text)
-	{
-		m_msg = _text;
-	}
+public slots:
+	void set_text(const QString& _text);
+	void set_title(const QString& _title);
+	void set_prefix(const QString& _prefix);
+	void set_drop_behavior(DropBehavior _db);
+	void set_log_behavior(LogBehavior _lb);
+	void set_pixmap(const QPixmap& _pixmap);
 
-	void set_type(MsgType _type)
-	{
-		m_type = _type;
-	}
+	virtual QString to_qstring() const;
 
 private:
-	QString m_msg;
-	MsgType m_type;
+	QString m_text;
+	QString m_title;
+	QString m_prefix;
+	DropBehavior m_db;
+	LogBehavior m_lb;
+	QPixmap m_pixmap;
 };

@@ -1,5 +1,6 @@
 
 #include "MessageQueue.h"
+#include "DefaultMessages.h"
 
 #include <QtCore/QStateMachine>
 
@@ -13,12 +14,12 @@ void MessageQueue::push_message(const Message& _message)
 {
 	std::lock_guard<std::recursive_mutex> guard(m_rm);
 	m_waiting_messages.push(_message);
-	emit size_changed(m_waiting_messages.size());
+	emit waiting_list_size_changed(m_waiting_messages.size());
 }
 
 const MessageQueue& MessageQueue::operator<<(const QString& _info)
 {
-	push_message(Message(MsgType::INFO, _info));
+	push_message(WarnMessage(_info));
 	return *this;
 }
 
@@ -65,18 +66,11 @@ MessageQueue::MessageQueue() : m_active_list_size_limit(DEF_ACTIVE_LIST_LIMIT), 
 		win->setFixedSize(m_msg_window_size);
 		win->set_base_widget(m_base_widget);
 		win->set_close_time(m_close_timer_value);
-		win->set_message(m_waiting_messages.front().text());
-
-		switch (m_waiting_messages.front().type())
-		{
-		case MsgType::INFO:		win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxInformation));	break;
-		case MsgType::WARNING:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxWarning));		break;
-		case MsgType::ERROR:	win->set_icon(win->style()->standardIcon(QStyle::SP_MessageBoxCritical));		break;
-		}
+		win->set_message(m_waiting_messages.front());
 
 		add_to_active_list(win);
 		m_waiting_messages.pop();
-		emit size_changed(m_waiting_messages.size());
+		emit waiting_list_size_changed(m_waiting_messages.size());
 	});
 
 	QObject::connect(remove_win_state, &QState::entered, this, [this]
@@ -119,7 +113,8 @@ void MessageQueue::add_to_active_list(PopupMsgWindow* _win)
 
 	m_active_list.push_front(_win);
 
-	_win->fade_in();
+//	m_out->write(_win)
+//	_win->fade_in();
 	_win->show();
 }
 
