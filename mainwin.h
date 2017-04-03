@@ -13,15 +13,18 @@ class Worker : public QObject
 	Q_OBJECT
 
 public slots:
-	void send_one(MessageQueue* _msgqueue, const QString& _msg)
+	void send_one(Message _message)
 	{
-		*_msgqueue << WarnMessage(_msg + QString("0x%1").arg((int)QThread::currentThread()));
+		_message.set_text(_message.text() + QString("0x%1").arg((int)QThread::currentThread()));
+		MessageQueue::instance() << _message;
 	}
 
-	void send_ten(MessageQueue* _msgqueue, const QString& _msg)
+	void send_ten(Message _message)
 	{
+		_message.set_text(_message.text() + QString("0x%1").arg((int)QThread::currentThread()));
+
 		for (int i = 0; i < 10; ++i)
-			*_msgqueue << WarnMessage(_msg + QString("0x%1").arg((int)QThread::currentThread()));
+			MessageQueue::instance() << _message;
 	}
 };
 

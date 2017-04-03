@@ -8,7 +8,8 @@ enum class DropBehavior
 {
 	NO_DROP,
 	DROP_IF_LIMITED,
-	DROP_IF_THREAD_CONFLICT
+	DROP_IF_THREAD_CONFLICT,
+	DROP_ALWAYS
 };
 
 enum class LogBehavior
@@ -25,7 +26,7 @@ public:
 	Message(QObject* _parent = nullptr);
 	Message(const QString& _title, const QString& _text, QObject* _parent = nullptr);
 	Message(const QString& _prefix, const QString& _title, const QString& _text, QObject* _parent = nullptr);
-	Message(const QString& _prefix, const QString& _title, const QString& _text, const QPixmap& _pixmap, QObject* _parent = nullptr);
+	Message(const QString& _prefix, const QString& _title, const QString& _text, const QImage& _image, QObject* _parent = nullptr);
 	Message(const Message& _other);
 
 	QString text() const;
@@ -33,7 +34,7 @@ public:
 	QString prefix() const;
 	DropBehavior drop_behavior() const;
 	LogBehavior log_behavior() const;
-	QPixmap pixmap() const;
+	QImage image() const;
 
 	virtual ~Message();
 
@@ -43,7 +44,7 @@ public slots:
 	void set_prefix(const QString& _prefix);
 	void set_drop_behavior(DropBehavior _db);
 	void set_log_behavior(LogBehavior _lb);
-	void set_pixmap(const QPixmap& _pixmap);
+	void set_image(const QImage& _pixmap);
 
 	virtual QString to_qstring() const;
 
@@ -53,5 +54,5 @@ private:
 	QString m_prefix;
 	DropBehavior m_db;
 	LogBehavior m_lb;
-	QPixmap m_pixmap;
+	QImage m_image;
 };

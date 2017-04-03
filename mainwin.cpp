@@ -37,7 +37,7 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 	Worker* info_wrk = new Worker();
 
-	QObject::connect(thr1_message_timer, &QTimer::timeout, info_wrk, std::bind(&Worker::send_one, info_wrk, &message_queue, "<font color=red>From thread 1:</font> "), Qt::QueuedConnection);
+	QObject::connect(thr1_message_timer, &QTimer::timeout, info_wrk, std::bind(&Worker::send_one, info_wrk, InfoMessage("<font color=blue>From thread 1:</font> ")), Qt::QueuedConnection);
 
 	QObject::connect(thr1_start_messaging, &QPushButton::clicked, [thr1_start_messaging, thr1_time_interval, thr1_message_timer](bool _checked)
 	{
@@ -75,7 +75,7 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	warning_wrk->moveToThread(thr2);
 	thr2->start();
 
-	QObject::connect(thr2_message_timer, &QTimer::timeout, warning_wrk, std::bind(&Worker::send_one, warning_wrk, &message_queue, "From thread 2: "), Qt::QueuedConnection);
+	QObject::connect(thr2_message_timer, &QTimer::timeout, warning_wrk, std::bind(&Worker::send_one, warning_wrk, WarnMessage("<font color=green>From thread 2:</font> ")), Qt::QueuedConnection);
 
 	QObject::connect(thr2_start_messaging, &QPushButton::clicked, [thr2_start_messaging, thr2_time_interval, thr2_message_timer](bool _checked)
 	{
@@ -106,7 +106,7 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 	error_wrk->moveToThread(thr3);
 	thr3->start();
 
-	QObject::connect(thr3_start_messaging, &QPushButton::clicked, error_wrk, std::bind(&Worker::send_ten, error_wrk, &message_queue, "From thread 3: "), Qt::QueuedConnection);
+	QObject::connect(thr3_start_messaging, &QPushButton::clicked, error_wrk, std::bind(&Worker::send_ten, error_wrk, ErrorMessage("<font color=red>From thread 3:</font> ")), Qt::QueuedConnection);
 
 	QHBoxLayout* thr3_layout = new QHBoxLayout;
 	thr3_layout->addWidget(new QLabel("Thread 3"));
@@ -143,4 +143,5 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 
 MainWin::~MainWin()
 {
+	out->close();
 }

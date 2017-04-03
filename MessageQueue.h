@@ -42,27 +42,25 @@ public:
 	const MessageQueue& operator << (const Message& _msg);
 
 	~MessageQueue();
+	MessageQueue(const MessageQueue&) = delete;
+	MessageQueue& operator= (const MessageQueue&) = delete;
 
 public slots:
 	void push_message(const Message& _message);
 
-signals:
-	void busy();
-	void add_msg();
-	void remove_msg();
-	void waiting_list_size_changed(size_t _size);
-
 private slots:
 	void process_messages();
+	void create_one();
+	void remove_one();
 
 private:
 	MessageQueue();
-	MessageQueue(const MessageQueue&) = delete;
-	MessageQueue& operator= (const MessageQueue&) = delete;
 
-	void add_to_active_list(PopupMsgWindow* _win);
-	void add_to_remove_list(PopupMsgWindow* _win);
-	void remove_from_active_list(PopupMsgWindow* _win);
+signals:
+	void ready();
+	void add_msg();
+	void remove_msg();
+	void waiting_list_size_changed(size_t _size);
 
 private:
 	size_t m_active_list_size_limit;
@@ -77,4 +75,6 @@ private:
 	std::list<PopupMsgWindow*> m_active_list;
 	std::queue<Message> m_waiting_messages;
 	std::queue<PopupMsgWindow*> m_remove_list;
+
+	QTimer* m_processing_timer;
 };

@@ -14,6 +14,14 @@ void MessageQueue::push_message(const Message& _message)
 {
 	std::lock_guard<std::recursive_mutex> guard(m_rm);
 	m_waiting_messages.push(_message);
+
+	if (m_out && _message.log_behavior() == LogBehavior::WRITE_TO_LOG)
+	{
+		QTextDocument td;
+		td.setHtml(_message.to_qstring());
+		m_out->write((td.toPlainText() + "\n").toLocal8Bit());
+	}
+
 	emit waiting_list_size_changed(m_waiting_messages.size());
 }
 
@@ -33,94 +41,92 @@ MessageQueue::~MessageQueue()
 {
 }
 
-MessageQueue::MessageQueue() : m_active_list_size_limit(DEF_ACTIVE_LIST_LIMIT), m_close_timer_value(DEF_CLOSE_TIMER), m_processing_interval(DEF_PROCESSING_INTERVAL), m_base_widget(nullptr)
+MessageQueue::MessageQueue() : 
+	m_active_list_size_limit(DEF_ACTIVE_LIST_LIMIT), 
+	m_close_timer_value(DEF_CLOSE_TIMER), 
+	m_processing_interval(DEF_PROCESSING_INTERVAL), 
+	m_base_widget(nullptr),
+	m_out(nullptr)
 {
 	m_msg_window_size = QSize(DEF_WIN_WIDTH, DEF_WIN_HEIGTH);
 
-	QTimer* timer = new QTimer(this);
-	timer->setInterval(m_processing_interval);
-	QObject::connect(timer, &QTimer::timeout, this, &MessageQueue::process_messages);
-	timer->start();
-
 	QStateMachine* machine = new QStateMachine(this);
-	QState* add_win_state = new QState(machine);
+	QState* create_win_state = new QState(machine);
 	QState* remove_win_state = new QState(machine);
-	QState* busy_state = new QState(machine);
+	QState* ready_state = new QState(machine);
 
-	busy_state->addTransition(this, &MessageQueue::remove_msg, remove_win_state);
-	busy_state->addTransition(this, &MessageQueue::add_msg, add_win_state);
-	add_win_state->addTransition(this, &MessageQueue::busy, busy_state);
-	remove_win_state->addTransition(this, &MessageQueue::busy, busy_state);
+	ready_state->addTransition(this, &MessageQueue::remove_msg, remove_win_state);
+	ready_state->addTransition(this, &MessageQueue::add_msg, create_win_state);
+	create_win_state->addTransition(this, &MessageQueue::ready, ready_state);
+	remove_win_state->addTransition(this, &MessageQueue::ready, ready_state);
 
-	QObject::connect(add_win_state, &QState::entered, this, [this]()
-	{
-		std::lock_guard<std::recursive_mutex> guard(m_rm);
+	QObject::connect(create_win_state, &QState::entered, this, &MessageQueue::create_one);
+	QObject::connect(remove_win_state, &QState::entered, this, &MessageQueue::remove_one);
 
-		if (m_active_list.size() >= m_active_list_size_limit)
-		{
-			emit busy();
-			return;
-		}
-
-		PopupMsgWindow* win = new PopupMsgWindow();
-		win->setFixedSize(m_msg_window_size);
-		win->set_base_widget(m_base_widget);
-		win->set_close_time(m_close_timer_value);
-		win->set_message(m_waiting_messages.front());
-
-		add_to_active_list(win);
-		m_waiting_messages.pop();
-		emit waiting_list_size_changed(m_waiting_messages.size());
-	});
-
-	QObject::connect(remove_win_state, &QState::entered, this, [this]
-	{
-		remove_from_active_list(m_remove_list.front());
-		delete m_remove_list.front();						//I really don't like raw pointers, but this window has a parent and shared_ptr (QSharedPointer) is not a good idea here
-		m_remove_list.pop();
-	});
-
-	machine->setInitialState(busy_state);
+	machine->setInitialState(ready_state);
 	machine->start();
+
+	m_processing_timer = new QTimer(this);			//owns
+	m_processing_timer->setInterval(m_processing_interval);
+	QObject::connect(m_processing_timer, &QTimer::timeout, this, &MessageQueue::process_messages);
+	m_processing_timer->start();
 }
 
-void MessageQueue::add_to_remove_list(PopupMsgWindow* _win)
+void MessageQueue::create_one()
 {
-	m_remove_list.push(_win);
-}
+	if (m_active_list.size() >= m_active_list_size_limit)
+	{
+		emit ready();
+		return;
+	}
 
-void MessageQueue::add_to_active_list(PopupMsgWindow* _win)
-{
-	QObject::connect(_win, &PopupMsgWindow::finish_fade_out, this, std::bind(&MessageQueue::add_to_remove_list, this, _win));		//remove after close
+	//maybe it's not needed because front item cannot be changed from another thread
+	m_rm.lock();
+
+	Message msg = m_waiting_messages.front();
+	m_waiting_messages.pop();
+	emit waiting_list_size_changed(m_waiting_messages.size());
+
+	m_rm.unlock();
+	//
+
+	PopupMsgWindow* win = new PopupMsgWindow();
+	win->setFixedSize(m_msg_window_size);
+	win->set_base_widget(m_base_widget);
+	win->set_close_time(m_close_timer_value);
+	win->set_message(msg);
+
+	QObject::connect(win, &PopupMsgWindow::finish_fade_out, this, [win, this]()
+	{
+		m_remove_list.push(win);		//remove after close
+	});
 
 	if (m_active_list.empty())		//first message
 	{
-		QObject::connect(_win, &PopupMsgWindow::finish_fade_in, this, &MessageQueue::busy);
+		QObject::connect(win, &PopupMsgWindow::finish_fade_in, this, &MessageQueue::ready);
 	}
 	else //there are already messages
 	{
 		//wait until first finish moving up
 		static QMetaObject::Connection connection;
-		connection = QObject::connect(m_active_list.front(), &PopupMsgWindow::finish_moving_up, this, [this, _win]()
+		connection = QObject::connect(m_active_list.front(), &PopupMsgWindow::finish_moving_up, this, [this]()
 		{
 			QObject::disconnect(connection);
-			emit busy();
+			emit ready();
 		});
 
 		for (auto& it : m_active_list)
 			it->move_up();
 	}
 
-	m_active_list.push_front(_win);
+	m_active_list.push_front(win);
 
-//	m_out->write(_win)
-//	_win->fade_in();
-	_win->show();
+	win->show();
 }
 
-void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
+void MessageQueue::remove_one()
 {
-	std::list<PopupMsgWindow*>::iterator cwin = std::find(m_active_list.begin(), m_active_list.end(), _win);
+	auto cwin = std::find(m_active_list.begin(), m_active_list.end(), m_remove_list.front());
 
 	if (cwin == m_active_list.end())
 		return;
@@ -134,7 +140,7 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 		{		
 			QObject::disconnect(connection);
 			m_active_list.remove(*cwin);
-			emit busy();
+			emit ready();
 		});
 
 		for (auto it = std::next(cwin); it != m_active_list.end(); ++it)
@@ -143,8 +149,11 @@ void MessageQueue::remove_from_active_list(PopupMsgWindow* _win)
 	else
 	{
 		m_active_list.remove(*cwin);
-		emit busy();
+		emit ready();
 	}	
+
+	delete m_remove_list.front();	//I really don't like raw pointers, but this window has a parent and shared_ptr (QSharedPointer) is not a good idea here
+	m_remove_list.pop();
 }
 
 void MessageQueue::process_messages()
@@ -164,6 +173,9 @@ void MessageQueue::process_messages()
 void MessageQueue::set_processing_interval(size_t _msec)
 {
 	m_processing_interval = _msec;
+	m_processing_timer->stop();
+	m_processing_timer->setInterval(m_processing_interval);
+	m_processing_timer->start();
 }
 
 size_t MessageQueue::processing_interval() const

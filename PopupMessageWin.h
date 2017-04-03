@@ -21,11 +21,23 @@
 class PopupMsgWindow : public QDialog
 {
 	Q_OBJECT
+
+	const size_t DEF_FADE_DURATION = 200;
+	const size_t DEF_MOVE_DURATION = 400;
+
 public:
 	PopupMsgWindow();
-	virtual ~PopupMsgWindow();
+
 	void set_base_widget(QWidget* _widget);
 	void set_close_time(size_t _msec);
+	void set_move_down_duration(size_t _msec);
+	void set_move_up_duration(size_t _msec);
+	void set_fade_in_duration(size_t _msec);
+	void set_fade_out_duration(size_t _msec);
+
+	virtual ~PopupMsgWindow();
+
+protected:
 	void closeEvent(QCloseEvent* _e) override;
 	void showEvent(QShowEvent* _e) override;
 
@@ -37,8 +49,9 @@ public slots:
 
 signals:
 	void begin_moving_down();
-	void finish_moving_down();
 	void begin_moving_up();
+
+	void finish_moving_down();
 	void finish_moving_up();
 	void finish_fade_out();
 	void finish_fade_in();
@@ -48,12 +61,11 @@ private:
 	void fade_in();
 
 private:
-	bool m_first_show;
 	size_t m_close_time;
 	QWidget* m_binded_widget;
-	std::atomic<bool> m_closed;
 	QTimer* m_close_timer;
-
 	QLabel* m_icon_lbl;
 	QPlainTextEdit* m_viewer;
+
+	size_t m_move_up_duration, m_move_down_duration, m_fade_in_duration, m_fade_out_duration;
 };
