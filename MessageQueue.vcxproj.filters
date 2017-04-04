@@ -71,6 +71,9 @@
     <ClCompile Include="MessageQueue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_EventFilter.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwin.h">
@@ -83,6 +86,9 @@
       <Filter>Header Files</Filter>
     </CustomBuild>
     <CustomBuild Include="MessageQueue.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="EventFilter.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
   </ItemGroup>

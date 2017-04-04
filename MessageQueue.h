@@ -8,6 +8,7 @@
 
 #include "PopupMessageWin.h"
 #include "Message.h"
+#include "EventFilter.h"
 
 class MessageQueue final : public QObject
 {
@@ -77,4 +78,5 @@ private:
 	std::queue<PopupMsgWindow*> m_remove_list;
 
 	QTimer* m_processing_timer;
+	EventFilter* m_filter;
 };

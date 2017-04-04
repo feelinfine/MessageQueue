@@ -46,7 +46,8 @@ MessageQueue::MessageQueue() :
 	m_close_timer_value(DEF_CLOSE_TIMER), 
 	m_processing_interval(DEF_PROCESSING_INTERVAL), 
 	m_base_widget(nullptr),
-	m_out(nullptr)
+	m_out(nullptr),
+	m_filter(nullptr)
 {
 	m_msg_window_size = QSize(DEF_WIN_WIDTH, DEF_WIN_HEIGTH);
 
@@ -188,6 +189,14 @@ size_t MessageQueue::processing_interval() const
 void MessageQueue::set_base_widget(QWidget* _base_widget) //no owns
 {
 	m_base_widget = _base_widget;
+
+	m_filter = new EventFilter(m_base_widget, this);
+
+	QObject::connect(m_filter, &EventFilter::position_changed, this, [this](QPoint _pos)
+	{
+		for (auto& it : m_active_list)
+			it->move(it->pos() + _pos);
+	});
 }
 
 QWidget* MessageQueue::base_widget() const
