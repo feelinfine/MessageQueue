@@ -53,6 +53,8 @@ private slots:
 	void process_messages();
 	void create_one();
 	void remove_one();
+	void freeze_messages();
+	void unfreeze_messages();
 
 private:
 	MessageQueue();

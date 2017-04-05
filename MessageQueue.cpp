@@ -51,35 +51,55 @@ MessageQueue::MessageQueue() :
 {
 	m_msg_window_size = QSize(DEF_WIN_WIDTH, DEF_WIN_HEIGTH);
 
+	m_filter = new EventFilter(this);
+
+	QObject::connect(m_filter, &EventFilter::position_changed, this, [this](QPoint _pos)
+	{
+		for (auto& it : m_active_list)
+			it->move(it->pos() + _pos);
+	});
+
+	//timer
+	m_processing_timer = new QTimer(this);			//owns
+	m_processing_timer->setInterval(m_processing_interval);
+	QObject::connect(m_processing_timer, &QTimer::timeout, this, &MessageQueue::process_messages);
+
+	//machine
 	QStateMachine* machine = new QStateMachine(this);
 	QState* create_win_state = new QState(machine);
 	QState* remove_win_state = new QState(machine);
+	QState* paused_state = new QState(machine);
 	QState* ready_state = new QState(machine);
 
 	ready_state->addTransition(this, &MessageQueue::remove_msg, remove_win_state);
 	ready_state->addTransition(this, &MessageQueue::add_msg, create_win_state);
 	create_win_state->addTransition(this, &MessageQueue::ready, ready_state);
 	remove_win_state->addTransition(this, &MessageQueue::ready, ready_state);
+	ready_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
+	create_win_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
+	remove_win_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
+	paused_state->addTransition(m_filter, &EventFilter::end_freeze, ready_state);
 
+	QObject::connect(ready_state, &QState::entered, m_processing_timer, static_cast<void(QTimer::*)()>(&QTimer::start));
 	QObject::connect(create_win_state, &QState::entered, this, &MessageQueue::create_one);
 	QObject::connect(remove_win_state, &QState::entered, this, &MessageQueue::remove_one);
+	QObject::connect(paused_state, &QState::entered, this, &MessageQueue::freeze_messages);
+	QObject::connect(paused_state, &QState::exited, this, &MessageQueue::unfreeze_messages);
 
 	machine->setInitialState(ready_state);
 	machine->start();
-
-	m_processing_timer = new QTimer(this);			//owns
-	m_processing_timer->setInterval(m_processing_interval);
-	QObject::connect(m_processing_timer, &QTimer::timeout, this, &MessageQueue::process_messages);
-	m_processing_timer->start();
 }
 
 void MessageQueue::create_one()
 {
+
 	if (m_active_list.size() >= m_active_list_size_limit)
 	{
 		emit ready();
 		return;
 	}
+
+	m_processing_timer->stop();
 
 	//maybe it's not needed because front item cannot be changed from another thread
 	m_rm.lock();
@@ -132,6 +152,8 @@ void MessageQueue::remove_one()
 	if (cwin == m_active_list.end())
 		return;
 
+	m_processing_timer->stop();
+
 	if (*cwin != m_active_list.back())
 	{
 		//wait until back finish moving down
@@ -169,6 +191,18 @@ void MessageQueue::process_messages()
 		emit add_msg();
 }
 
+void MessageQueue::freeze_messages()
+{
+	for (auto& it : m_active_list)
+		it->pause();
+}
+
+void MessageQueue::unfreeze_messages()
+{
+	for (auto& it : m_active_list)
+		it->resume();
+}
+
 /*-------------------------------------*/
 
 void MessageQueue::set_processing_interval(size_t _msec)
@@ -189,14 +223,7 @@ size_t MessageQueue::processing_interval() const
 void MessageQueue::set_base_widget(QWidget* _base_widget) //no owns
 {
 	m_base_widget = _base_widget;
-
-	m_filter = new EventFilter(m_base_widget, this);
-
-	QObject::connect(m_filter, &EventFilter::position_changed, this, [this](QPoint _pos)
-	{
-		for (auto& it : m_active_list)
-			it->move(it->pos() + _pos);
-	});
+	m_filter->set_widget(m_base_widget);
 }
 
 QWidget* MessageQueue::base_widget() const
@@ -263,3 +290,4 @@ QSize MessageQueue::window_size() const
 {
 	return m_msg_window_size;
 }
+

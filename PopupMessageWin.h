@@ -11,6 +11,7 @@
 
 #include <QtCore/QTimer>
 #include <QtCore/QPropertyAnimation>
+#include <QtCore/QStateMachine>
 
 #include <QtGui/QCloseEvent>
 
@@ -23,15 +24,14 @@ class PopupMsgWindow : public QDialog
 	Q_OBJECT
 
 	const size_t DEF_FADE_DURATION = 200;
-	const size_t DEF_MOVE_DURATION = 400;
+	const size_t DEF_MOVE_DURATION = 900;
 
 public:
 	PopupMsgWindow();
 
 	void set_base_widget(QWidget* _widget);
 	void set_close_time(size_t _msec);
-	void set_move_down_duration(size_t _msec);
-	void set_move_up_duration(size_t _msec);
+	void set_moving_duration(size_t _msec);
 	void set_fade_in_duration(size_t _msec);
 	void set_fade_out_duration(size_t _msec);
 
@@ -44,21 +44,25 @@ protected:
 public slots:
 	void move_up();
 	void move_down();
-	void fade_out();
+	void pause();
+	void resume();
 	virtual void set_message(const Message& _message);
 
 signals:
-	void begin_moving_down();
-	void begin_moving_up();
+	void start_moving_down();
+	void start_moving_up();
 
 	void finish_moving_down();
 	void finish_moving_up();
 	void finish_fade_out();
 	void finish_fade_in();
+	void paused();
+	void resumed();
 
 private:
 	void start_close_timer();
 	void fade_in();
+	void fade_out();
 
 private:
 	size_t m_close_time;
@@ -67,5 +71,10 @@ private:
 	QLabel* m_icon_lbl;
 	QPlainTextEdit* m_viewer;
 
-	size_t m_move_up_duration, m_move_down_duration, m_fade_in_duration, m_fade_out_duration;
+	size_t m_moving_duration, m_fade_in_duration, m_fade_out_duration;
+
+	QPoint m_moving_diff;
+	size_t m_duration_diff;
+
+	QStateMachine* m_machine;
 };

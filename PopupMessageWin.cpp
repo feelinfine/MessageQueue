@@ -4,8 +4,7 @@ PopupMsgWindow::PopupMsgWindow() :
 	QDialog(nullptr), 
 	m_fade_in_duration(DEF_FADE_DURATION), 
 	m_fade_out_duration(DEF_FADE_DURATION), 
-	m_move_down_duration(DEF_MOVE_DURATION), 
-	m_move_up_duration(DEF_MOVE_DURATION)
+	m_moving_duration(DEF_MOVE_DURATION)
 {
 	m_close_timer = new QTimer(this);	//owns
 
@@ -36,6 +35,64 @@ PopupMsgWindow::PopupMsgWindow() :
 	main_layout->addLayout(bottom_layout);
 
 	setLayout(main_layout);
+
+	// machine
+
+	m_machine = new QStateMachine(this);
+
+	QState* fixed_state = new QState(m_machine);
+	QState* moving_up_state = new QState(m_machine);
+	QState* moving_down_state = new QState(m_machine);
+	QState* paused_state = new QState(m_machine);
+
+	fixed_state->addTransition(this, &PopupMsgWindow::start_moving_up, moving_up_state);
+	fixed_state->addTransition(this, &PopupMsgWindow::start_moving_down, moving_down_state);
+	moving_up_state->addTransition(this, &PopupMsgWindow::finish_moving_up, fixed_state);
+	moving_down_state->addTransition(this, &PopupMsgWindow::finish_moving_down, fixed_state);
+	moving_up_state->addTransition(this, &PopupMsgWindow::paused, paused_state);
+	moving_down_state->addTransition(this, &PopupMsgWindow::paused, paused_state);
+//	paused_state->addTransition(this, &PopupMsgWindow::resumed, paused_state);
+
+	QPropertyAnimation* moving_animation = new QPropertyAnimation(this, "pos", this);
+
+	QObject::connect(fixed_state, &QState::entered, this, [this]()
+	{
+		m_duration_diff = m_moving_duration;
+		m_moving_diff.setX(0);
+		m_moving_diff.setY(frameGeometry().height());
+	});
+
+	QObject::connect(moving_up_state, &QState::entered, this, [this, moving_animation]()
+	{
+		moving_animation->setStartValue(pos());
+		moving_animation->setEndValue(pos() - m_moving_diff);
+		moving_animation->setDuration(m_duration_diff);
+
+		QObject::connect(moving_animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_up);
+		moving_animation->start();
+	});
+
+	QObject::connect(moving_down_state, &QState::entered, this, [this, moving_animation]()
+	{
+		moving_animation->setStartValue(pos());
+		moving_animation->setEndValue(pos() + m_moving_diff);
+		moving_animation->setDuration(m_duration_diff);
+
+		QObject::connect(moving_animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_down);
+		moving_animation->start();
+	});
+
+	QObject::connect(paused_state, &QState::entered, this, [this, moving_animation]()
+	{
+		if (moving_animation)
+		{
+			moving_animation->stop();
+			m_moving_diff = moving_animation->endValue().toPoint() - moving_animation->currentValue().toPoint();
+			m_duration_diff = m_moving_duration - moving_animation->currentTime();
+		}
+	});
+
+	m_machine->setInitialState(fixed_state);
 }
 
 PopupMsgWindow::~PopupMsgWindow()
@@ -77,6 +134,11 @@ void PopupMsgWindow::closeEvent(QCloseEvent* _e)
 
 void PopupMsgWindow::showEvent(QShowEvent* _e)
 {
+	if (m_machine->isRunning())
+		m_machine->stop();
+
+	m_machine->start();
+
 	start_close_timer();
 
 	QDialog::showEvent(_e);
@@ -84,14 +146,9 @@ void PopupMsgWindow::showEvent(QShowEvent* _e)
 	fade_in();
 }
 
-void PopupMsgWindow::set_move_down_duration(size_t _msec)
+void PopupMsgWindow::set_moving_duration(size_t _msec)
 {
-	m_move_down_duration = _msec;
-}
-
-void PopupMsgWindow::set_move_up_duration(size_t _msec)
-{
-	m_move_up_duration = _msec;
+	m_moving_duration = _msec;
 }
 
 void PopupMsgWindow::set_fade_in_duration(size_t _msec)
@@ -106,31 +163,22 @@ void PopupMsgWindow::set_fade_out_duration(size_t _msec)
 
 void PopupMsgWindow::move_up()
 {
-	QPoint begin_pos = pos();
-	QPoint end_pos = QPoint(begin_pos.x(), begin_pos.y() - frameGeometry().height());
-
-	QPropertyAnimation* animation = new QPropertyAnimation(this, "pos", this);
-	animation->setStartValue(begin_pos);
-	animation->setEndValue(end_pos);
-	animation->setDuration(m_move_up_duration);
-	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_up);
-	animation->start(QAbstractAnimation::DeleteWhenStopped);
-	emit begin_moving_up();
+	emit start_moving_up();
 }
 
 void PopupMsgWindow::move_down()
 {
-	QPoint begin_pos = pos();
-	QPoint end_pos = QPoint(begin_pos.x(), begin_pos.y() + frameGeometry().height());
+	emit start_moving_down();
+}
 
-	QPropertyAnimation* animation = new QPropertyAnimation(this, "pos", this);
-	animation->setDuration(m_move_down_duration);
-	animation->setStartValue(begin_pos);
-	animation->setEndValue(end_pos);
+void PopupMsgWindow::pause()
+{
+	emit paused();
+}
 
-	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_moving_down);
-	animation->start(QAbstractAnimation::DeleteWhenStopped);
-	emit begin_moving_down();
+void PopupMsgWindow::resume()
+{
+	emit resumed();
 }
 
 void PopupMsgWindow::fade_in()
