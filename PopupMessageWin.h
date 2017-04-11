@@ -76,5 +76,5 @@ private:
 	QPoint m_moving_diff;
 	size_t m_duration_diff;
 
-	QStateMachine* m_machine;
+	QPropertyAnimation* moving_animation;
 };

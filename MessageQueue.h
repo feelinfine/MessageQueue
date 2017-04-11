@@ -61,8 +61,10 @@ private:
 
 signals:
 	void ready();
+	void yellow();
 	void add_msg();
 	void remove_msg();
+	void moving();
 	void waiting_list_size_changed(size_t _size);
 
 private:

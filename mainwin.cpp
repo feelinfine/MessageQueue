@@ -122,6 +122,21 @@ MainWin::MainWin(QWidget *parent) : QMainWindow(parent)
 		lbl_counter->setText(QString::number(_size));
 	});
 
+	QObject::connect(&message_queue, &MessageQueue::ready, this, [lbl_counter]()
+	{
+		lbl_counter->setStyleSheet("QLabel {background-color: green;}");
+	});
+
+	QObject::connect(&message_queue, &MessageQueue::moving, this, [lbl_counter]()
+	{
+		lbl_counter->setStyleSheet("QLabel {background-color: red;}");
+	});
+
+	QObject::connect(&message_queue, &MessageQueue::yellow, this, [lbl_counter]()
+	{
+		lbl_counter->setStyleSheet("QLabel {background-color: yellow;}");
+	});
+
 	QHBoxLayout* message_counter_layout = new QHBoxLayout;
 	message_counter_layout->addWidget(new QLabel("Queued messages: "));
 	message_counter_layout->addWidget(lbl_counter);

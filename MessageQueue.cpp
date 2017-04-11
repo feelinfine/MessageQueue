@@ -3,6 +3,7 @@
 #include "DefaultMessages.h"
 
 #include <QtCore/QStateMachine>
+#include <QtCore/QHistoryState>
 
 MessageQueue& MessageQueue::instance()
 {
@@ -66,10 +67,12 @@ MessageQueue::MessageQueue() :
 
 	//machine
 	QStateMachine* machine = new QStateMachine(this);
-	QState* create_win_state = new QState(machine);
-	QState* remove_win_state = new QState(machine);
+	QState* working_state = new QState(machine);
+	QState* ready_state = new QState(working_state);
+	QState* create_win_state = new QState(working_state);
+	QState* remove_win_state = new QState(working_state);
+
 	QState* paused_state = new QState(machine);
-	QState* ready_state = new QState(machine);
 
 	ready_state->addTransition(this, &MessageQueue::remove_msg, remove_win_state);
 	ready_state->addTransition(this, &MessageQueue::add_msg, create_win_state);
@@ -78,21 +81,42 @@ MessageQueue::MessageQueue() :
 	ready_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
 	create_win_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
 	remove_win_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
-	paused_state->addTransition(m_filter, &EventFilter::end_freeze, ready_state);
+	paused_state->addTransition(this, &MessageQueue::ready, ready_state);
+
+	//QHistoryState* hs = new QHistoryState(working_state);
+	//hs->setDefaultState(ready_state);
+	//paused_state->addTransition(m_filter, &EventFilter::end_freeze, hs);
 
 	QObject::connect(ready_state, &QState::entered, m_processing_timer, static_cast<void(QTimer::*)()>(&QTimer::start));
 	QObject::connect(create_win_state, &QState::entered, this, &MessageQueue::create_one);
 	QObject::connect(remove_win_state, &QState::entered, this, &MessageQueue::remove_one);
 	QObject::connect(paused_state, &QState::entered, this, &MessageQueue::freeze_messages);
-	QObject::connect(paused_state, &QState::exited, this, &MessageQueue::unfreeze_messages);
+//	QObject::connect(paused_state, &QState::exited, this, &MessageQueue::unfreeze_messages);
 
-	machine->setInitialState(ready_state);
+	QObject::connect(m_filter, &EventFilter::end_freeze, this, &MessageQueue::unfreeze_messages);
+
+	QObject::connect(ready_state, &QState::entered, this, [this]
+	{
+		emit ready();
+	});
+
+	QObject::connect(create_win_state, &QState::entered, this, [this]
+	{
+		emit yellow();
+	});
+
+	QObject::connect(paused_state, &QState::entered, this, [this]
+	{
+		emit moving();
+	});
+
+	working_state->setInitialState(ready_state);
+	machine->setInitialState(working_state);
 	machine->start();
 }
 
 void MessageQueue::create_one()
 {
-
 	if (m_active_list.size() >= m_active_list_size_limit)
 	{
 		emit ready();
@@ -119,7 +143,7 @@ void MessageQueue::create_one()
 
 	QObject::connect(win, &PopupMsgWindow::finish_fade_out, this, [win, this]()
 	{
-		m_remove_list.push(win);		//remove after close
+		m_remove_list.push(win);	//remove after close
 	});
 
 	if (m_active_list.empty())		//first message
@@ -203,8 +227,6 @@ void MessageQueue::unfreeze_messages()
 		it->resume();
 }
 
-/*-------------------------------------*/
-
 void MessageQueue::set_processing_interval(size_t _msec)
 {
 	m_processing_interval = _msec;
@@ -218,8 +240,6 @@ size_t MessageQueue::processing_interval() const
 	return m_processing_interval;
 }
 
-/*-------------------------------------*/
-
 void MessageQueue::set_base_widget(QWidget* _base_widget) //no owns
 {
 	m_base_widget = _base_widget;
@@ -231,8 +251,6 @@ QWidget* MessageQueue::base_widget() const
 	return m_base_widget;
 }
 
-/*-------------------------------------*/
-
 void MessageQueue::set_msg_close_time(size_t _msec)
 {
 	m_close_timer_value = _msec;
@@ -242,8 +260,6 @@ size_t MessageQueue::msg_close_time() const
 {
 	return m_close_timer_value;
 }
-
-/*-------------------------------------*/
 
 void MessageQueue::set_active_size_limit(size_t _size)
 {
@@ -255,8 +271,6 @@ size_t MessageQueue::active_size_limit() const
 	return m_active_list_size_limit;
 }
 
-/*-------------------------------------*/
-
 void MessageQueue::set_output_device(QIODevice* _out)
 {
 	m_out = _out;
@@ -267,8 +281,6 @@ QIODevice* MessageQueue::output_device() const
 	return m_out;
 }
 
-/*-------------------------------------*/
-
 void MessageQueue::set_waiting_cutoff_size(size_t _size)
 {
 	m_waiting_list_size_limit = _size;
@@ -278,8 +290,6 @@ size_t MessageQueue::waiting_cutoff_size() const
 {
 	return m_waiting_list_size_limit;
 }
-
-/*-------------------------------------*/
 
 void MessageQueue::set_window_size(const QSize& _size)
 {
