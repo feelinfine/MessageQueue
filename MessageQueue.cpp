@@ -83,31 +83,26 @@ MessageQueue::MessageQueue() :
 	remove_win_state->addTransition(m_filter, &EventFilter::freeze, paused_state);
 	paused_state->addTransition(this, &MessageQueue::ready, ready_state);
 
-	//QHistoryState* hs = new QHistoryState(working_state);
-	//hs->setDefaultState(ready_state);
-	//paused_state->addTransition(m_filter, &EventFilter::end_freeze, hs);
-
 	QObject::connect(ready_state, &QState::entered, m_processing_timer, static_cast<void(QTimer::*)()>(&QTimer::start));
+	QObject::connect(ready_state, &QState::exited, m_processing_timer, &QTimer::stop);
 	QObject::connect(create_win_state, &QState::entered, this, &MessageQueue::create_one);
 	QObject::connect(remove_win_state, &QState::entered, this, &MessageQueue::remove_one);
 	QObject::connect(paused_state, &QState::entered, this, &MessageQueue::freeze_messages);
-//	QObject::connect(paused_state, &QState::exited, this, &MessageQueue::unfreeze_messages);
 
-	QObject::connect(m_filter, &EventFilter::end_freeze, this, &MessageQueue::unfreeze_messages);
-
-	QObject::connect(ready_state, &QState::entered, this, [this]
+	QObject::connect(m_filter, &EventFilter::end_freeze, this, [this]
 	{
-		emit ready();
-	});
+		int some = 0;
+		for (auto& it : m_active_list)
+		{
+			if (it->moving())
+			{
+				some++;
+				it->resume();
+			}
+		}
 
-	QObject::connect(create_win_state, &QState::entered, this, [this]
-	{
-		emit yellow();
-	});
-
-	QObject::connect(paused_state, &QState::entered, this, [this]
-	{
-		emit moving();
+		if (some == 0)
+			emit ready();
 	});
 
 	working_state->setInitialState(ready_state);
@@ -122,8 +117,6 @@ void MessageQueue::create_one()
 		emit ready();
 		return;
 	}
-
-	m_processing_timer->stop();
 
 	//maybe it's not needed because front item cannot be changed from another thread
 	m_rm.lock();
@@ -141,11 +134,6 @@ void MessageQueue::create_one()
 	win->set_close_time(m_close_timer_value);
 	win->set_message(msg);
 
-	QObject::connect(win, &PopupMsgWindow::finish_fade_out, this, [win, this]()
-	{
-		m_remove_list.push(win);	//remove after close
-	});
-
 	if (m_active_list.empty())		//first message
 	{
 		QObject::connect(win, &PopupMsgWindow::finish_fade_in, this, &MessageQueue::ready);
@@ -154,7 +142,7 @@ void MessageQueue::create_one()
 	{
 		//wait until first finish moving up
 		static QMetaObject::Connection connection;
-		connection = QObject::connect(m_active_list.front(), &PopupMsgWindow::finish_moving_up, this, [this]()
+		connection = QObject::connect(m_active_list.front(), &PopupMsgWindow::finish_moving, this, [this]()
 		{
 			QObject::disconnect(connection);
 			emit ready();
@@ -166,27 +154,32 @@ void MessageQueue::create_one()
 
 	m_active_list.push_front(win);
 
+	QObject::connect(win, &PopupMsgWindow::finish_fade_out, this, [win, this]()
+	{
+		m_remove_list.push(win);	//remove after close
+	});
+
 	win->show();
 }
 
 void MessageQueue::remove_one()
 {
 	auto cwin = std::find(m_active_list.begin(), m_active_list.end(), m_remove_list.front());
+	m_remove_list.pop();
 
 	if (cwin == m_active_list.end())
 		return;
 
-	m_processing_timer->stop();
+	PopupMsgWindow* to_delete = *cwin;
 
 	if (*cwin != m_active_list.back())
 	{
 		//wait until back finish moving down
 		PopupMsgWindow* upper = *std::next(cwin);
 		static QMetaObject::Connection connection;
-		connection = QObject::connect(upper, &PopupMsgWindow::finish_moving_down, this, [cwin, this]()
+		connection = QObject ::connect(upper, &PopupMsgWindow::finish_moving, this, [this]()
 		{		
 			QObject::disconnect(connection);
-			m_active_list.remove(*cwin);
 			emit ready();
 		});
 
@@ -194,13 +187,10 @@ void MessageQueue::remove_one()
 			(*it)->move_down();
 	}
 	else
-	{
-		m_active_list.remove(*cwin);
 		emit ready();
-	}	
 
-	delete m_remove_list.front();	//I really don't like raw pointers, but this window has a parent and shared_ptr (QSharedPointer) is not a good idea here
-	m_remove_list.pop();
+	m_active_list.remove(to_delete);
+	delete to_delete;	//I really don't like raw pointers, but this window has a parent and shared_ptr (QSharedPointer) is not a good idea here
 }
 
 void MessageQueue::process_messages()
@@ -218,13 +208,19 @@ void MessageQueue::process_messages()
 void MessageQueue::freeze_messages()
 {
 	for (auto& it : m_active_list)
-		it->pause();
+	{
+		if (it->moving())
+			it->pause();
+	}
 }
 
 void MessageQueue::unfreeze_messages()
 {
 	for (auto& it : m_active_list)
-		it->resume();
+	{
+		if (it->moving())
+			it->resume();
+	}
 }
 
 void MessageQueue::set_processing_interval(size_t _msec)

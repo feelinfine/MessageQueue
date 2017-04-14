@@ -35,6 +35,8 @@ public:
 	void set_fade_in_duration(size_t _msec);
 	void set_fade_out_duration(size_t _msec);
 
+	bool moving() const;
+
 	virtual ~PopupMsgWindow();
 
 protected:
@@ -52,8 +54,7 @@ signals:
 	void start_moving_down();
 	void start_moving_up();
 
-	void finish_moving_down();
-	void finish_moving_up();
+	void finish_moving();
 	void finish_fade_out();
 	void finish_fade_in();
 	void paused();
@@ -76,5 +77,7 @@ private:
 	QPoint m_moving_diff;
 	size_t m_duration_diff;
 
-	QPropertyAnimation* moving_animation;
+	QPropertyAnimation* m_moving_animation;
+
+	bool m_moving;
 };
