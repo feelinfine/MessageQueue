@@ -33,6 +33,15 @@
       <Extensions>cpp;moc</Extensions>
       <SourceControlFiles>False</SourceControlFiles>
     </Filter>
+    <Filter Include="Header Files\MessageWindow">
+      <UniqueIdentifier>{9f05dbe8-44b5-43d1-8dad-7d73813641f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\MessageQueue">
+      <UniqueIdentifier>{1428a9bd-7a74-4046-93ad-e52d83ea8b12}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Message">
+      <UniqueIdentifier>{cd467b55-18c8-4b72-9292-98e2f29b7870}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -74,30 +83,33 @@
     <ClCompile Include="GeneratedFiles\Debug\moc_EventFilter.cpp">
       <Filter>Generated Files\Debug</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_PrivatePopupMessageWin.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="mainwin.h">
       <Filter>Header Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="PopupMessageWin.h">
-      <Filter>Header Files</Filter>
+    <CustomBuild Include="PrivatePopupMessageWin.h">
+      <Filter>Header Files\MessageWindow</Filter>
     </CustomBuild>
-    <CustomBuild Include="Message.h">
-      <Filter>Header Files</Filter>
+    <CustomBuild Include="PopupMessageWin.h">
+      <Filter>Header Files\MessageWindow</Filter>
     </CustomBuild>
     <CustomBuild Include="MessageQueue.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\MessageQueue</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Message.h">
+      <Filter>Header Files\Message</Filter>
     </CustomBuild>
     <CustomBuild Include="EventFilter.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\MessageQueue</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DefaultMessages.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PrivatePopupMessageWin.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Message</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

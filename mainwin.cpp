@@ -1,6 +1,7 @@
 #include "mainwin.h"
 
 #include <QtWidgets/QLayout>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QDoubleSpinBox>
 

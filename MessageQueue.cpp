@@ -3,7 +3,9 @@
 #include "DefaultMessages.h"
 
 #include <QtCore/QStateMachine>
+#include <QtCore/QTimer>
 #include <QtCore/QHistoryState>
+#include <QtGui/QTextDocument>
 
 MessageQueue& MessageQueue::instance()
 {

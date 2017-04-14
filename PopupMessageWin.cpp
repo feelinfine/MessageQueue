@@ -3,24 +3,31 @@
 #include <QtCore/QStateMachine>
 #include <QtCore/QHistoryState>
 
-PopupMsgWindow::PopupMsgWindow() :
-	QDialog(nullptr),
-	m_fade_in_duration(DEF_FADE_DURATION),
-	m_fade_out_duration(DEF_FADE_DURATION),
-	m_moving_duration(DEF_MOVE_DURATION),
-	m_moving(false)
+#include <QtCore/QPropertyAnimation>
+#include "PrivatePopupMessageWin.h"
+
+PopupMsgWindow::PopupMsgWindow() : QDialog(nullptr), p_impl(std::make_unique<PrivatePopupMessageWin>())
 {
-	m_close_timer = new QTimer(this);	//owns
+	QObject::connect(p_impl.get(), &PrivatePopupMessageWin::close_window, this, &PopupMsgWindow::close);
+	QObject::connect(p_impl.get(), &PrivatePopupMessageWin::finish_fade_in, this, &PopupMsgWindow::finish_fade_in);
+	QObject::connect(p_impl.get(), &PrivatePopupMessageWin::finish_fade_out, this, &PopupMsgWindow::finish_fade_out);
+
+	p_impl->m_fade_in_duration = DEF_FADE_DURATION;
+	p_impl->m_fade_out_duration = DEF_FADE_DURATION;
+	p_impl->m_moving_duration = DEF_MOVE_DURATION;
+	p_impl->m_moving = false;
+
+	p_impl->m_close_timer = new QTimer(this);	//owns
 
 	setWindowFlags(windowFlags() | Qt::Tool);
 	setWindowOpacity(0);
 
-	m_viewer = new QPlainTextEdit();
-	m_viewer->setReadOnly(true);
-	m_viewer->setStyleSheet("QPlainTextEdit {background-color: transparent;} ");
-	m_viewer->setFrameStyle(QFrame::NoFrame);
+	p_impl->m_viewer = new QPlainTextEdit();
+	p_impl->m_viewer->setReadOnly(true);
+	p_impl->m_viewer->setStyleSheet("QPlainTextEdit {background-color: transparent;} ");
+	p_impl->m_viewer->setFrameStyle(QFrame::NoFrame);
 
-	m_icon_lbl = new QLabel();
+	p_impl->m_icon_lbl = new QLabel();
 
 	QPushButton* btn = new QPushButton("OK", this);
 	QObject::connect(btn, &QPushButton::clicked, this, &PopupMsgWindow::close);
@@ -30,8 +37,8 @@ PopupMsgWindow::PopupMsgWindow() :
 	bottom_layout->addWidget(btn);
 
 	QHBoxLayout* central_layout = new QHBoxLayout();
-	central_layout->addWidget(m_icon_lbl);
-	central_layout->addWidget(m_viewer);
+	central_layout->addWidget(p_impl->m_icon_lbl);
+	central_layout->addWidget(p_impl->m_viewer);
 
 	QVBoxLayout* main_layout = new QVBoxLayout();
 	main_layout->addLayout(central_layout);
@@ -40,10 +47,10 @@ PopupMsgWindow::PopupMsgWindow() :
 
 	setLayout(main_layout);
 
-	m_moving_animation = new QPropertyAnimation(this, "pos", this);
-	QObject::connect(m_moving_animation, &QPropertyAnimation::finished, this, [this]
+	p_impl->m_moving_animation = new QPropertyAnimation(this, "pos", this);
+	QObject::connect(p_impl->m_moving_animation, &QPropertyAnimation::finished, this, [this]
 	{
-		m_moving = false;
+		p_impl->m_moving = false;
 		emit finish_moving();
 	});
 }
@@ -68,132 +75,88 @@ void PopupMsgWindow::set_base_widget(QWidget* _widget)
 
 void PopupMsgWindow::set_close_time(size_t _msec)
 {
-	m_close_time = _msec;
+	p_impl->m_close_time = _msec;
 }
 
 void PopupMsgWindow::closeEvent(QCloseEvent* _e)
 {
-	if (m_close_timer->isActive())
-		m_close_timer->stop();
+	if (p_impl->m_close_timer->isActive())
+		p_impl->m_close_timer->stop();
 
 	QObject::connect(this, &PopupMsgWindow::finish_fade_out, [this, _e] 
 	{
 		QDialog::closeEvent(_e);
 	});
 
-	fade_out();
+	p_impl->fade_out(new QPropertyAnimation(this, "windowOpacity")); //delete when stopped
 	_e->ignore();
 }
 
 void PopupMsgWindow::showEvent(QShowEvent* _e)
 {
-	m_moving_diff.setX(0);
-	m_moving_diff.setY(frameGeometry().height());
+	p_impl->m_moving_diff = QPoint(0, frameGeometry().height());
 
-	start_close_timer();
+	p_impl->start_close_timer();
 
 	QDialog::showEvent(_e);
 
-	fade_in();
+	p_impl->fade_in(new QPropertyAnimation(this, "windowOpacity"));	//delete when stopped
 }
 
 void PopupMsgWindow::set_moving_duration(size_t _msec)
 {
-	m_moving_duration = _msec;
-	m_duration_diff = m_moving_duration;
+	p_impl->m_moving_duration = _msec;
+	p_impl->m_duration_diff = p_impl->m_moving_duration;
 }
 
 void PopupMsgWindow::set_fade_in_duration(size_t _msec)
 {
-	m_fade_in_duration = _msec;
+	p_impl->m_fade_in_duration = _msec;
 }
 
 void PopupMsgWindow::set_fade_out_duration(size_t _msec)
 {
-	m_fade_out_duration = _msec;
+	p_impl->m_fade_out_duration = _msec;
 }
 
 bool PopupMsgWindow::moving() const
 {
-	return m_moving;
+	return p_impl->m_moving;
 }
 
 void PopupMsgWindow::move_up()
 {
-	m_duration_diff = m_moving_duration;
-	m_moving_diff = QPoint(0, -frameGeometry().height());
-	start_animation();
+	p_impl->m_duration_diff = p_impl->m_moving_duration;
+	p_impl->m_moving_diff = QPoint(0, -frameGeometry().height());
+	p_impl->start_moving_animation(pos());
 	emit start_moving_up();
 }
 
 void PopupMsgWindow::move_down()
 {
-	m_duration_diff = m_moving_duration;
-	m_moving_diff = QPoint(0, frameGeometry().height());
-	start_animation();
+	p_impl->m_duration_diff = p_impl->m_moving_duration;
+	p_impl->m_moving_diff = QPoint(0, frameGeometry().height());
+	p_impl->start_moving_animation(pos());
 	emit start_moving_down();
-}
-
-void PopupMsgWindow::start_animation()
-{
-	m_moving = true;
-	m_moving_animation->setStartValue(pos());
-	m_moving_animation->setEndValue(pos() + m_moving_diff);
-	m_moving_animation->setDuration(m_duration_diff);
-	m_moving_animation->start();
 }
 
 void PopupMsgWindow::pause()
 {
-	m_moving_animation->stop();
-	m_moving_diff = m_moving_animation->endValue().toPoint() - m_moving_animation->currentValue().toPoint();
-	m_duration_diff = m_moving_duration - m_moving_animation->currentTime();
+	p_impl->m_moving_animation->stop();
+	p_impl->m_moving_diff = p_impl->m_moving_animation->endValue().toPoint() - p_impl->m_moving_animation->currentValue().toPoint();
+	p_impl->m_duration_diff = p_impl->m_moving_duration - p_impl->m_moving_animation->currentTime();
 	emit paused();
 }
 
 void PopupMsgWindow::resume()
 {
-	start_animation();
+	p_impl->start_moving_animation(pos());
 	emit resumed();
 }
-
-void PopupMsgWindow::fade_in()
-{
-	QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity", this);
-	animation->setStartValue(0.0);
-	animation->setEndValue(1.0);
-	animation->setDuration(m_fade_in_duration);
-
-	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_fade_in);
-	animation->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
-void PopupMsgWindow::fade_out()
-{
-	QPropertyAnimation* animation = new QPropertyAnimation(this, "windowOpacity", this);
-	animation->setStartValue(1.0);
-	animation->setEndValue(0.0);
-	animation->setDuration(m_fade_out_duration);
-
-	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_fade_out);
-	animation->start(QAbstractAnimation::DeleteWhenStopped);
-}
-
 
 void PopupMsgWindow::set_message(const Message& _message)
 {
 	setWindowTitle(_message.title());
-	m_icon_lbl->setPixmap(QPixmap::fromImage(_message.image()));
-	m_viewer->appendHtml(_message.text());
-}
-
-void PopupMsgWindow::start_close_timer()
-{
-	if (m_close_time)
-	{
-		m_close_timer->setInterval(m_close_time);
-		m_close_timer->setSingleShot(true);
-		QObject::connect(m_close_timer, &QTimer::timeout, this, &PopupMsgWindow::close);
-		m_close_timer->start();
-	}
+	p_impl->m_icon_lbl->setPixmap(QPixmap::fromImage(_message.image()));
+	p_impl->m_viewer->appendHtml(_message.text());
 }

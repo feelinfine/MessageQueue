@@ -143,6 +143,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_PopupMessageWin.cpp" />
+    <ClCompile Include="GeneratedFiles\Debug\moc_PrivatePopupMessageWin.cpp" />
     <ClCompile Include="GeneratedFiles\Release\moc_mainwin.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -224,7 +225,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DefaultMessages.h" />
-    <ClInclude Include="PrivatePopupMessageWin.h" />
+    <CustomBuild Include="PrivatePopupMessageWin.h" />
     <CustomBuild Include="EventFilter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
