@@ -296,4 +296,3 @@ QSize MessageQueue::window_size() const
 {
 	return m_msg_window_size;
 }
-

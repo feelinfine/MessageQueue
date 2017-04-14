@@ -46,59 +46,6 @@ PopupMsgWindow::PopupMsgWindow() :
 		m_moving = false;
 		emit finish_moving();
 	});
-
-	QStateMachine* machine = new QStateMachine();
-	QState* working_state = new QState(machine);
-	QState* fixed_state = new QState(working_state);
-	QState* moving_up_state = new QState(working_state);
-	QState* moving_down_state = new QState(working_state);
-	QState* paused_state = new QState(machine);
-
-	QHistoryState* hs = new QHistoryState(working_state);
-	hs->setDefaultState(fixed_state);
-	paused_state->addTransition(this, &PopupMsgWindow::resumed, hs);
-
-	fixed_state->addTransition(this, &PopupMsgWindow::start_moving_up, moving_up_state);
-	fixed_state->addTransition(this, &PopupMsgWindow::start_moving_down, moving_down_state);
-	moving_down_state->addTransition(this, &PopupMsgWindow::finish_moving, fixed_state);
-	moving_up_state->addTransition(this, &PopupMsgWindow::finish_moving, fixed_state);
-	moving_down_state->addTransition(this, &PopupMsgWindow::paused, paused_state);
-	moving_up_state->addTransition(this, &PopupMsgWindow::paused, paused_state);
-
-	QObject::connect(moving_up_state, &QState::entered, this, [this]()
-	{
-		m_moving = true;
-		m_moving_animation->setStartValue(pos());
-		m_moving_animation->setEndValue(pos() - m_moving_diff);
-		m_moving_animation->setDuration(m_duration_diff);
-		m_moving_animation->start();
-	});
-
-	QObject::connect(moving_down_state, &QState::entered, this, [this]()
-	{
-		m_moving = true;
-		m_moving_animation->setStartValue(pos());
-		m_moving_animation->setEndValue(pos() + m_moving_diff);
-		m_moving_animation->setDuration(m_duration_diff);
-		m_moving_animation->start();
-	});
-
-	QObject::connect(paused_state, &QState::entered, this, [this]()
-	{
-		m_moving_diff = -m_moving_animation->endValue().toPoint() + m_moving_animation->currentValue().toPoint();
-		m_duration_diff = m_moving_duration - m_moving_animation->currentTime();
-		m_moving_animation->stop();
-	});
-
-	QObject::connect(fixed_state, &QState::exited, this, [this]()
-	{
-		m_moving_diff = QPoint(0, frameGeometry().height());
-		m_duration_diff = m_moving_duration;
-	});
-
-	working_state->setInitialState(fixed_state);
-	machine->setInitialState(working_state);
-	machine->start();
 }
 
 PopupMsgWindow::~PopupMsgWindow()
@@ -173,21 +120,40 @@ bool PopupMsgWindow::moving() const
 
 void PopupMsgWindow::move_up()
 {
+	m_duration_diff = m_moving_duration;
+	m_moving_diff = QPoint(0, -frameGeometry().height());
+	start_animation();
 	emit start_moving_up();
 }
 
 void PopupMsgWindow::move_down()
 {
+	m_duration_diff = m_moving_duration;
+	m_moving_diff = QPoint(0, frameGeometry().height());
+	start_animation();
 	emit start_moving_down();
+}
+
+void PopupMsgWindow::start_animation()
+{
+	m_moving = true;
+	m_moving_animation->setStartValue(pos());
+	m_moving_animation->setEndValue(pos() + m_moving_diff);
+	m_moving_animation->setDuration(m_duration_diff);
+	m_moving_animation->start();
 }
 
 void PopupMsgWindow::pause()
 {
+	m_moving_animation->stop();
+	m_moving_diff = m_moving_animation->endValue().toPoint() - m_moving_animation->currentValue().toPoint();
+	m_duration_diff = m_moving_duration - m_moving_animation->currentTime();
 	emit paused();
 }
 
 void PopupMsgWindow::resume()
 {
+	start_animation();
 	emit resumed();
 }
 
@@ -212,6 +178,7 @@ void PopupMsgWindow::fade_out()
 	QObject::connect(animation, &QPropertyAnimation::finished, this, &PopupMsgWindow::finish_fade_out);
 	animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
+
 
 void PopupMsgWindow::set_message(const Message& _message)
 {

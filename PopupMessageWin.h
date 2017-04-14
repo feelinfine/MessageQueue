@@ -11,8 +11,6 @@
 
 #include <QtCore/QTimer>
 #include <QtCore/QPropertyAnimation>
-#include <QtCore/QStateMachine>
-
 #include <QtGui/QCloseEvent>
 
 #include <memory>
@@ -64,6 +62,7 @@ private:
 	void start_close_timer();
 	void fade_in();
 	void fade_out();
+	void start_animation();
 
 private:
 	size_t m_close_time;

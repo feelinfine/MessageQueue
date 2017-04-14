@@ -96,5 +96,8 @@
     <ClInclude Include="DefaultMessages.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PrivatePopupMessageWin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
