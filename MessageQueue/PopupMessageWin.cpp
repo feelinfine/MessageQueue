@@ -69,6 +69,10 @@ void PopupMsgWindow::set_base_widget(QWidget* _widget)
 		x = _widget->x() + _widget->width() - width();
 		y = _widget->y() + style()->pixelMetric(QStyle::PM_TitleBarHeight) + _widget->rect().height() - height();
 	}
+	else
+	{
+		//todo bottom right screen corner
+	}
 
 	setGeometry(x, y, width(), height());
 }
@@ -144,7 +148,7 @@ void PopupMsgWindow::pause()
 {
 	p_impl->m_moving_animation->stop();
 	p_impl->m_moving_diff = p_impl->m_moving_animation->endValue().toPoint() - p_impl->m_moving_animation->currentValue().toPoint();
-	p_impl->m_duration_diff = p_impl->m_moving_duration - p_impl->m_moving_animation->currentTime();
+	p_impl->m_duration_diff = p_impl->m_duration_diff - p_impl->m_moving_animation->currentTime();
 	emit paused();
 }
 

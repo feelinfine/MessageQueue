@@ -4,6 +4,7 @@
 #include <QtCore/QEvent>
 #include <QtGui/QDragMoveEvent>
 #include <QtWidgets/QWidget>
+#include <QtCore/QTimer>
 
 class EventFilter : public QObject
 {
@@ -40,9 +41,15 @@ public:
 			{
 				emit freeze();
 			}
+			else if (_event->type() == QEvent::WindowStateChange)
+			{
+				emit end_freeze();
+			}		
 			else if (_event->type() == QEvent::Resize)
 			{
-				int t2 = 0;
+				QResizeEvent* resize_event = dynamic_cast<QResizeEvent*>(_event);
+				QSize s = resize_event->size() - resize_event->oldSize();
+				emit position_changed(QPoint(s.width(), s.height()));
 			}
 
 		}

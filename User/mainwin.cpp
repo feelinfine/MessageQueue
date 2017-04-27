@@ -8,7 +8,6 @@
 #include <QtCore/QTimer>
 #include <QtCore/QThread>
 
-#include "MessageQueue.h"
 #include "QtWidgets/QLCDNumber"
 
 MainWin::MainWin(QWidget *parent) : QMainWindow(parent)

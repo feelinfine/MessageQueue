@@ -5,8 +5,8 @@
 #include <QtCore/QFile>
 #include <QtCore/QThread>
 
-#include "DefaultMessages.h"
-#include "MessageQueue.h"
+#include "../MessageQueue/MessageQueue.h"
+#include "../MessageQueue/Message.h"
 
 class Worker : public QObject
 {
