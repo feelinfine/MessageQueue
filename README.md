@@ -6,12 +6,12 @@ Threadsafe.
 
 Example 1:
 
-![](https://im3.ezgif.com/tmp/ezgif-3-98aa3c0c86.gif)
+![](https://github.com/feelinfine/MessageQueue/blob/dev/22.gif)
 
 
 Example 2:
 
-![](https://im3.ezgif.com/tmp/ezgif-3-4f57814189.gif)
+![](https://github.com/feelinfine/MessageQueue/blob/dev/33.gif)
 
 MessageQueue is a singleton class.
 
